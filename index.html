@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bisaBK - Konseling</title>
+    <!-- Muat Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Muat Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* Menggunakan font Inter untuk tampilan yang bersih */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Menyesuaikan area scroll chat */
+        .chat-area {
+            height: calc(100vh - 250px); /* Ketinggian disesuaikan */
+        }
+    </style>
+</head>
+<body>
+    <div id="app-root" class="min-h-screen flex flex-col">
+        <!-- Konten Aplikasi akan dirender di sini oleh JavaScript -->
+    </div>
+
+    <script>
+        // --- KONSTANTA & UTILITY ---
+        const LS_ROLE_KEY = 'bisaBK_role';
+        const LS_NICKNAME_KEY = 'bisaBK_nickname';
+        const LS_APPOINTMENTS_KEY = 'bisaBK_appointments';
+        const LS_MATERIALS_KEY = 'bisaBK_materials';
+        const LS_CHAT_KEY = 'bisaBK_chat';
+        // Simpan akun Guru BK di sini. Data ini harus diverifikasi secara ketat (case-insensitive).
+        const GURU_ACCOUNTS = ['gurubk111', 'gurubk222']; 
+
+        /**
+         * @description Fungsi debounce untuk menunda eksekusi fungsi
+         */
+        const debounce = (func, delay) => {
+            let timeoutId;
+            return function(...args) {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    func.apply(this, args);
+                }, delay);
+            };
+        };
+
+        // Utility: Mengambil data dari localStorage
+        const getLSState = (key, defaultValue) => {
+            try {
+                const storedValue = localStorage.getItem(key);
+                if (storedValue) {
+                    return JSON.parse(storedValue);
+                }
+                return defaultValue;
+            } catch (error) {
+                console.error(`Error reading localStorage key "${key}":`, error);
+                return defaultValue;
+            }
+        };
+
+        // Utility: Menyimpan data ke localStorage
+        const setLSState = (key, value) => {
+            try {
+                if (value === null || value === undefined) {
+                    localStorage.removeItem(key);
+                } else {
+                    localStorage.setItem(key, JSON.stringify(value));
+                }
+            } catch (error) {
+                console.error(`Error writing localStorage key "${key}":`, error);
+            }
+        };
+        
+        // Utility: Format waktu
+        const formatTime = (timestamp) => {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        };
+        
+        // Utility: Mengubah string HTML menjadi DOM node
+        const createEl = (htmlString) => {
+            const div = document.createElement('div');
+            div.innerHTML = htmlString.trim();
+            return div.firstChild;
+        };
+
+        // --- STATE GLOBAL (Pengganti React State/Hooks) ---
+        let appState = {
+            role: getLSState(LS_ROLE_KEY, null),
+            nickname: getLSState(LS_NICKNAME_KEY, ''),
+            page: 'appointments',
+            appointments: getLSState(LS_APPOINTMENTS_KEY, []),
+            materials: getLSState(LS_MATERIALS_KEY, []),
+            chatMessages: getLSState(LS_CHAT_KEY, []),
+            tempNickname: '',
+            loginError: '',
+        };
+
+        // Fungsi untuk memperbarui state dan me-render ulang aplikasi
+        function updateState(newState) {
+            Object.assign(appState, newState);
+
+            // Perbarui localStorage untuk state yang persisten
+            if ('role' in newState) setLSState(LS_ROLE_KEY, appState.role);
+            if ('nickname' in newState) setLSState(LS_NICKNAME_KEY, appState.nickname);
+            if ('appointments' in newState) setLSState(LS_APPOINTMENTS_KEY, appState.appointments);
+            if ('materials' in newState) setLSState(LS_MATERIALS_KEY, appState.materials);
+            if ('chatMessages' in newState) setLSState(LS_CHAT_KEY, appState.chatMessages);
+
+            renderApp(); // Panggil fungsi render utama
+        }
+
+        // Debounced function untuk memperbarui state nickname
+        const debouncedUpdateNickname = debounce((value) => {
+            // Hanya panggil updateState jika value berbeda atau ada error yang perlu dihapus
+            if (appState.tempNickname !== value || appState.loginError) {
+                 updateState({ tempNickname: value, loginError: '' });
+            }
+        }, 300); // Tunda 300ms setelah user berhenti mengetik
+
+        // --- HANDLER LOGIN/LOGOUT ---
+
+        const handleLogin = (selectedRole) => {
+            // Pastikan kita menggunakan nilai terbaru dari tempNickname
+            const cleanedNickname = appState.tempNickname.trim();
+
+            if (!cleanedNickname) {
+                updateState({ loginError: 'Nama panggilan tidak boleh kosong.' });
+                return;
+            }
+
+            if (selectedRole === 'guru') {
+                if (!GURU_ACCOUNTS.includes(cleanedNickname.toLowerCase())) {
+                    // Pesan kesalahan yang lebih umum dan tidak spesifik
+                    updateState({ loginError: 'Akses Ditolak. Nama panggilan tidak dikenali sebagai Guru BK.' });
+                    return;
+                }
+            }
+
+            updateState({
+                role: selectedRole,
+                nickname: cleanedNickname,
+                loginError: '',
+                tempNickname: '',
+            });
+        };
+
+        const handleLogout = () => {
+            localStorage.removeItem(LS_ROLE_KEY);
+            localStorage.removeItem(LS_NICKNAME_KEY);
+            // Reset semua state terkait sesi
+            updateState({
+                role: null,
+                nickname: '',
+                tempNickname: '',
+                page: 'appointments'
+            });
+        };
+
+        // --- RENDER KOMPONEN KHUSUS ---
+        
+        function renderLogin() {
+            const container = document.getElementById('app-root');
+            container.className = "min-h-screen flex items-center justify-center bg-gray-100 p-4";
+            
+            // Variabel untuk menyimpan nilai input yang terikat ke state
+            const currentNickname = appState.tempNickname;
+
+            // Membangun fungsi oninput yang memanggil debounced handler
+            const onInputHandler = `debouncedUpdateNickname(this.value)`;
+
+            const html = `
+                <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl border border-indigo-100">
+                    <h1 class="text-3xl font-extrabold text-indigo-700 mb-6 text-center">bisaBK :)</h1>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">Nama Panggilan Anda (Wajib)</label>
+                            <input
+                                id="nickname"
+                                type="text"
+                                value="${currentNickname}"
+                                placeholder="Masukkan nama Anda..."
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                oninput="${onInputHandler}"
+                            />
+                        </div>
+
+                        ${appState.loginError ? `
+                            <div class="flex items-center p-3 text-sm text-red-800 bg-red-100 rounded-lg" role="alert">
+                                <i data-lucide="x-circle" class="w-4 h-4 mr-2 flex-shrink-0"></i>
+                                <div>${appState.loginError}</div>
+                            </div>
+                        ` : ''}
+                        
+                        <button
+                            onclick="handleLogin('siswa')"
+                            ${!currentNickname ? 'disabled' : ''}
+                            class="w-full py-3 px-4 rounded-xl text-lg font-semibold text-white bg-green-600 hover:bg-green-700 transition shadow-md disabled:opacity-50 flex items-center justify-center space-x-2"
+                        >
+                            <i data-lucide="corner-down-left" class="w-5 h-5"></i> Masuk Sebagai SISWA
+                        </button>
+                        <button
+                            onclick="handleLogin('guru')"
+                            ${!currentNickname ? 'disabled' : ''}
+                            class="w-full py-3 px-4 rounded-xl text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-md disabled:opacity-50 flex items-center justify-center space-x-2"
+                        >
+                            <i data-lucide="briefcase" class="w-5 h-5"></i> Masuk Sebagai GURU BK
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+            lucide.createIcons();
+            
+            // Set fokus kembali ke input setelah re-render (jika ada nilai)
+            if (currentNickname) {
+                const nicknameInput = document.getElementById('nickname');
+                if (nicknameInput) {
+                    nicknameInput.focus();
+                    // Pindahkan kursor ke akhir teks
+                    nicknameInput.setSelectionRange(currentNickname.length, currentNickname.length);
+                }
+            }
+        }
+
+        // --- RENDER FITUR: CHAT LOKAL ---
+        function renderChat() {
+            const { chatMessages, nickname, role } = appState;
+            
+            // Logika untuk menampilkan pesan
+            const messagesHtml = chatMessages.map(msg => {
+                const isSelf = msg.role === role;
+                const containerClass = isSelf ? 'flex justify-end' : 'flex justify-start';
+                const bubbleClass = isSelf
+                    ? 'bg-indigo-600 text-white rounded-tl-xl rounded-bl-xl rounded-br-xl'
+                    : 'bg-white text-gray-800 rounded-tr-xl rounded-bl-xl rounded-br-xl shadow-md border';
+
+                return `
+                    <div class="${containerClass}">
+                        <div class="max-w-xs md:max-w-md lg:max-w-lg p-3 ${bubbleClass}">
+                            <p class="font-semibold text-sm mb-1">${msg.sender} <span class="text-xs font-normal opacity-70">(${msg.role === 'guru' ? 'Guru BK' : 'Siswa'})</span></p>
+                            <p class="text-base break-words">${msg.text}</p>
+                            <p class="text-xs mt-1 text-right opacity-80">${formatTime(msg.timestamp)}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const chatBodyHtml = chatMessages.length === 0 
+                ? `<p class="text-center text-gray-500 italic p-4">Belum ada pesan. Mulai percakapan...</p>`
+                : messagesHtml;
+
+            const html = `
+                <div class="flex flex-col h-full bg-gray-50 border border-gray-200 rounded-xl shadow-lg p-4">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Diskusi Kelompok (Chat)</h2>
+                    <div id="chat-messages" class="flex-1 overflow-y-auto space-y-3 mb-4 p-2 bg-white rounded-lg border chat-area">
+                        ${chatBodyHtml}
+                        <div id="chat-end"></div>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <input
+                            type="text"
+                            id="new-message-input"
+                            placeholder="Ketik pesan Anda..."
+                            class="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition"
+                            onkeypress="if (event.key === 'Enter') document.getElementById('send-message-btn').click()"
+                        />
+                        <button
+                            id="send-message-btn"
+                            onclick="handleSendMessage()"
+                            class="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition duration-200 shadow-md flex items-center justify-center"
+                            aria-label="Kirim Pesan"
+                        >
+                            <i data-lucide="send" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+
+        function handleSendMessage() {
+            const inputEl = document.getElementById('new-message-input');
+            const newMessage = inputEl.value;
+
+            if (newMessage.trim()) {
+                const message = {
+                    id: Date.now(),
+                    sender: appState.nickname,
+                    role: appState.role,
+                    text: newMessage.trim(),
+                    timestamp: Date.now(),
+                };
+                
+                // Simpan dan update state
+                const newMessages = [...appState.chatMessages, message];
+                updateState({ chatMessages: newMessages });
+
+                // Bersihkan input
+                inputEl.value = '';
+                
+                // Panggil scroll setelah re-render (timeout kecil membantu)
+                setTimeout(() => {
+                    const chatEndRef = document.getElementById('chat-end');
+                    if (chatEndRef) {
+                        chatEndRef.scrollIntoView({ behavior: "smooth" });
+                    }
+                }, 10);
+            }
+        }
+        
+        // --- RENDER FITUR: MATERI ---
+        function handleMaterialUpload(event) {
+            event.preventDefault();
+            const titleInput = document.getElementById('material-title');
+            const contentInput = document.getElementById('material-content');
+            const title = titleInput.value.trim();
+            const content = contentInput.value.trim();
+            
+            if (!title || !content) return;
+
+            const newMaterial = {
+                id: Date.now(),
+                title: title,
+                content: content,
+                timestamp: Date.now(),
+            };
+
+            const newMaterials = [newMaterial, ...appState.materials];
+            updateState({ materials: newMaterials });
+
+            titleInput.value = '';
+            contentInput.value = '';
+        }
+
+        function handleMaterialDelete(id) {
+            const newMaterials = appState.materials.filter(m => m.id !== id);
+            updateState({ materials: newMaterials });
+        }
+
+        function renderMaterials() {
+            const { materials, role } = appState;
+            
+            const uploadFormHtml = role === 'guru' ? `
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-indigo-200">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-700 flex items-center"><i data-lucide="plus" class="w-5 h-5 mr-2"></i> Unggah Materi Baru</h3>
+                    <form onsubmit="handleMaterialUpload(event)" class="space-y-4">
+                        <div>
+                            <label for="material-title" class="block text-sm font-medium text-gray-700">Judul Materi</label>
+                            <input
+                                id="material-title"
+                                type="text"
+                                class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label for="material-content" class="block text-sm font-medium text-gray-700">Isi / Ringkasan Materi</label>
+                            <textarea
+                                id="material-content"
+                                rows="5"
+                                placeholder="Tuliskan poin-poin penting atau kutipan motivasi..."
+                                class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                required
+                            ></textarea>
+                        </div>
+                        <button
+                            type="submit"
+                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 transition"
+                        >
+                            Unggah Materi
+                        </button>
+                    </form>
+                </div>
+            ` : '';
+
+            const materialsListHtml = materials.length === 0 
+                ? `<p class="text-gray-500 italic">Belum ada materi yang diunggah.</p>`
+                : materials.map(material => `
+                    <div class="p-5 bg-white rounded-xl shadow-md border border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="text-lg font-bold text-gray-800">${material.title}</h4>
+                                <p class="text-xs text-gray-500 mb-2">Diunggah: ${new Date(material.timestamp).toLocaleDateString('id-ID')}</p>
+                            </div>
+                            ${role === 'guru' ? `
+                                <button
+                                    onclick="handleMaterialDelete(${material.id})"
+                                    class="text-red-500 hover:text-red-700 transition p-1 rounded-full hover:bg-red-50"
+                                    aria-label="Hapus Materi"
+                                >
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                        <p class="text-gray-600 mt-2 whitespace-pre-wrap">${material.content}</p>
+                    </div>
+                `).join('');
+
+            return `
+                <div class="space-y-8">
+                    <h2 class="text-2xl font-extrabold text-indigo-700">Materi Inspirasi & Motivasi</h2>
+                    ${uploadFormHtml}
+                    <div class="mt-8">
+                        <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mb-4">Daftar Materi (${materials.length})</h3>
+                        <div class="space-y-4">
+                            ${materialsListHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- RENDER FITUR: JANJI TEMU (GURU) ---
+        function handleAppointmentUpdate(id, newStatus) {
+            const updatedAppointments = appState.appointments.map(app =>
+                app.id === id ? { ...app, status: newStatus } : app
+            );
+            updateState({ appointments: updatedAppointments });
+        }
+
+        function handleAppointmentDelete(id) {
+            const newAppointments = appState.appointments.filter(app => app.id !== id);
+            updateState({ appointments: newAppointments });
+        }
+
+        function renderGuruAppointmentManager() {
+            const { appointments } = appState;
+            const pendingAppointments = appointments.filter(a => a.status === 'Pending');
+            const otherAppointments = appointments.filter(a => a.status !== 'Pending').sort((a, b) => b.timestamp - a.timestamp);
+
+            const statusClasses = {
+                'Pending': 'bg-yellow-100 text-yellow-800',
+                'Accepted': 'bg-green-100 text-green-800',
+                'Rejected': 'bg-red-100 text-red-800',
+            };
+
+            const pendingHtml = pendingAppointments.length > 0 ? `
+                <div class="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                    <h3 class="text-xl font-semibold text-orange-700 mb-3 flex items-center">
+                        <i data-lucide="user-check" class="w-5 h-5 mr-2"></i> Janji Temu Menunggu Persetujuan (${pendingAppointments.length})
+                    </h3>
+                    <div class="space-y-3">
+                        ${pendingAppointments.map(app => `
+                            <div class="p-4 bg-white shadow-md rounded-lg border border-orange-300">
+                                <p class="font-bold text-gray-800">${app.siswaName}</p>
+                                <p class="text-sm text-gray-600">${app.reason}</p>
+                                <p class="text-xs font-medium mt-1">Diajukan: ${new Date(app.timestamp).toLocaleString('id-ID')}</p>
+                                <div class="mt-3 flex space-x-2">
+                                    <button
+                                        onclick="handleAppointmentUpdate(${app.id}, 'Accepted')"
+                                        class="py-1 px-3 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition"
+                                    >
+                                        Setujui
+                                    </button>
+                                    <button
+                                        onclick="handleAppointmentUpdate(${app.id}, 'Rejected')"
+                                        class="py-1 px-3 bg-red-500 text-white rounded-full text-sm hover:bg-red-600 transition"
+                                    >
+                                        Tolak
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : '';
+
+            const historyHtml = (otherAppointments.length === 0 && pendingAppointments.length === 0) ? 
+                `<p class="text-gray-500 italic">Belum ada riwayat janji temu.</p>` :
+                [...pendingAppointments, ...otherAppointments].sort((a, b) => b.timestamp - a.timestamp).map(app => `
+                    <div class="p-4 bg-white shadow-sm rounded-lg border border-gray-200 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-lg text-gray-800">${app.siswaName}</p>
+                            <p class="text-sm text-gray-600 italic">Tujuan: ${app.reason}</p>
+                            <span class="text-xs font-medium px-2 py-1 rounded-full mt-1 inline-block ${statusClasses[app.status]}">
+                                Status: ${app.status}
+                            </span>
+                        </div>
+                        <button
+                            onclick="handleAppointmentDelete(${app.id})"
+                            class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50"
+                            aria-label="Hapus Janji Temu"
+                        >
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                `).join('');
+
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-extrabold text-indigo-700">Kelola Janji Temu Siswa</h2>
+                    ${pendingHtml}
+                    <h3 class="text-xl font-semibold text-gray-700 mt-6 border-b pb-2">Riwayat Janji Temu Lainnya</h3>
+                    <div class="space-y-3">
+                        ${historyHtml}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // --- RENDER FITUR: JANJI TEMU (SISWA) ---
+
+        function handleSiswaAppointmentSubmit(event) {
+            event.preventDefault();
+            const reasonInput = document.getElementById('appointment-reason');
+            const reason = reasonInput.value.trim();
+            
+            if (!reason) return;
+
+            const newAppointment = {
+                id: Date.now(),
+                siswaName: appState.nickname,
+                reason: reason,
+                status: 'Pending',
+                timestamp: Date.now(),
+            };
+
+            const newAppointments = [...appState.appointments, newAppointment];
+            updateState({ appointments: newAppointments });
+            reasonInput.value = ''; // Clear form
+        }
+
+        function renderSiswaAppointmentRequest() {
+            const { appointments, nickname } = appState;
+            const activeAppointments = appointments.filter(a => a.siswaName === nickname).sort((a, b) => b.timestamp - a.timestamp);
+
+            const statusClasses = {
+                'Pending': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+                'Accepted': 'bg-green-100 text-green-800 border-green-300',
+                'Rejected': 'bg-red-100 text-red-800 border-red-300',
+            };
+
+            const statusListHtml = activeAppointments.length === 0 ?
+                `<p class="text-gray-500 italic">Anda belum mengajukan janji temu.</p>` :
+                activeAppointments.map(app => `
+                    <div class="p-4 bg-white shadow-md rounded-lg border-l-4 ${statusClasses[app.status]}">
+                        <p class="font-bold text-gray-800">Tujuan: ${app.reason}</p>
+                        <div class="mt-1 flex justify-between items-center">
+                            <span class="text-sm font-medium px-2 py-1 rounded-full ${statusClasses[app.status]}">
+                                ${app.status}
+                            </span>
+                            <span class="text-xs text-gray-500">Diajukan: ${new Date(app.timestamp).toLocaleDateString('id-ID')}</span>
+                        </div>
+                        ${app.status === 'Accepted' ? '<p class="text-sm mt-2 text-green-700 font-medium">Janji temu Anda telah disetujui!</p>' : ''}
+                    </div>
+                `).join('');
+
+
+            return `
+                <div class="space-y-8">
+                    <h2 class="text-2xl font-extrabold text-indigo-700">Ajukan Janji Temu Konseling</h2>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-lg border">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-700">Formulir Permintaan</h3>
+                        <form onsubmit="handleSiswaAppointmentSubmit(event)" class="space-y-4">
+                            <div>
+                                <label for="appointment-reason" class="block text-sm font-medium text-gray-700">Alasan/Tujuan Konseling</label>
+                                <textarea
+                                    id="appointment-reason"
+                                    rows="3"
+                                    placeholder="Contoh: Merasa kesulitan mengatur waktu belajar..."
+                                    class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                    required
+                                ></textarea>
+                            </div>
+                            <button
+                                type="submit"
+                                class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+                            >
+                                Ajukan Permintaan
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="mt-8">
+                        <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mb-4">Status Janji Temu Anda</h3>
+                        <div class="space-y-3">
+                            ${statusListHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // --- RENDER NAVIGASI ---
+        function renderNav() {
+            const navItems = [
+                { id: 'appointments', label: 'Janji Temu', icon: 'book-open' },
+                { id: 'materials', label: 'Materi', icon: 'briefcase' },
+                { id: 'chat', label: 'Chat', icon: 'message-square' },
+            ];
+
+            const navHtml = navItems.map(item => `
+                <button
+                    onclick="updateState({ page: '${item.id}' })"
+                    class="w-full flex items-center py-3 px-2 md:px-4 rounded-lg transition duration-200 group 
+                        ${appState.page === item.id 
+                            ? 'bg-indigo-100 text-indigo-700 font-semibold' 
+                            : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
+                        }"
+                >
+                    <i data-lucide="${item.icon}" class="w-5 h-5 md:mr-3 flex-shrink-0"></i>
+                    <span class="hidden md:inline">${item.label}</span>
+                </button>
+            `).join('');
+
+            return `
+                <nav class="w-16 md:w-56 bg-white p-2 md:p-4 rounded-xl shadow-lg h-fit sticky top-20 mr-4 md:mr-8">
+                    <div class="space-y-2">
+                        ${navHtml}
+                    </div>
+                </nav>
+            `;
+        }
+
+        // --- RENDER KONTEN UTAMA ---
+        function renderContent() {
+            switch (appState.page) {
+                case 'appointments':
+                    return appState.role === 'siswa' ? renderSiswaAppointmentRequest() : renderGuruAppointmentManager();
+                case 'materials':
+                    return renderMaterials();
+                case 'chat':
+                    return renderChat();
+                default:
+                    return '';
+            }
+        }
+
+        // --- RENDER APLIKASI UTAMA (Setelah Login) ---
+
+        function renderApp() {
+            if (!appState.role) {
+                renderLogin();
+                return;
+            }
+
+            const container = document.getElementById('app-root');
+            container.className = "min-h-screen bg-gray-100 font-sans flex flex-col"; // Reset class
+
+            const headerHtml = `
+                <!-- Header -->
+                <header class="bg-white shadow-lg p-4 sticky top-0 z-10">
+                    <div class="max-w-7xl mx-auto w-full flex justify-between items-center">
+                        <h1 class="text-2xl font-bold text-indigo-600">bisaBK :)</h1>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
+                                ${appState.nickname} (${appState.role === 'guru' ? 'Guru BK' : 'Siswa'})
+                            </span>
+                            <button
+                                onclick="handleLogout()"
+                                class="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-md"
+                                aria-label="Logout"
+                            >
+                                <i data-lucide="log-out" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+            `;
+
+            const mainHtml = `
+                <div class="flex flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">
+                    <!-- Sidebar Navigasi -->
+                    ${renderNav()}
+
+                    <!-- Konten Utama -->
+                    <main class="flex-1 bg-white p-6 md:p-10 rounded-xl shadow-lg">
+                        ${renderContent()}
+                    </main>
+                </div>
+            `;
+
+            const footerHtml = `
+                <!-- Footer -->
+                <footer class="w-full text-center p-3 text-xs text-gray-500 mt-4">
+                    &copy; 2024 bisaBK
+                </footer>
+            `;
+
+            container.innerHTML = headerHtml + mainHtml + footerHtml;
+            
+            // Panggil Lucide Icons agar ikon muncul
+            lucide.createIcons();
+
+            // Khusus untuk chat: pastikan scroll ke bawah setelah konten dimuat
+            if (appState.page === 'chat') {
+                setTimeout(() => {
+                    const chatEndRef = document.getElementById('chat-end');
+                    if (chatEndRef) {
+                        chatEndRef.scrollIntoView({ behavior: "auto" });
+                    }
+                }, 50); // Timeout kecil membantu DOM selesai dirender
+            }
+        }
+
+        // --- INISIALISASI ---
+        window.onload = renderApp;
+    </script>
+</body>
+</html>
