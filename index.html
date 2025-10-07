@@ -34,22 +34,30 @@
         const LS_APPOINTMENTS_KEY = 'bisaBK_appointments';
         const LS_MATERIALS_KEY = 'bisaBK_materials';
         const LS_CHAT_KEY = 'bisaBK_chat';
-        // Simpan akun Guru BK di sini. Data ini harus diverifikasi secara ketat (case-insensitive).
+
+        // Daftar akun Guru BK (case-insensitive) - TANPA PASSWORD
         const GURU_ACCOUNTS = ['gurubk111', 'gurubk222']; 
+        
+        // Daftar akun Siswa yang diizinkan (case-insensitive) - DENGAN PASSWORD
+        const SISWA_ACCOUNTS = [
+            'adifa melani putri', 'anastasya zajuli', 'andini putri prasetyo', 'annisa setiawan',
+            'aura zahrani', 'aurellia rahman', 'cantika pujiarti', 'darriell riyadi',
+            'fazle mawla akhtar sopian', 'fitriyani sari', 'galang rizky sadaya', 'indira arpiana',
+            'irfan hafizh rizoullah', 'kalila azhara', 'kaniya julia utami', 'kautsar hidayatullah',
+            'mika al ghani jasin', 'muhamad farid ramadhan', 'muhamad langgi yuri pradipta', 'muhammad addar outhni',
+            'muhammad awa abdurrohman', 'nadira indriani', 'nia putri ramadhani', 'putri alysa keyla',
+            'raditya gunawan', 'raid dhayla jabar', 'rafi ahmad al gibran', 'raina maira hermawan',
+            'raisya ariyanti', 'razip adi pratama', 'rindu salsabila', 'rubiana azzahra',
+            'shinta rahayu pertiwi sujai', 'siti alifta azzahra khumairoh', 'sulthan rifoi ghibransyah',
+            'tiara dwi ramadhani'
+        ];
+        // KATA SANDI SISWA (SEMUA: 12346)
+        const SISWA_PASSWORD = '12346';
 
-        /**
-         * @description Fungsi debounce untuk menunda eksekusi fungsi
-         */
-        const debounce = (func, delay) => {
-            let timeoutId;
-            return function(...args) {
-                clearTimeout(timeoutId);
-                timeoutId = setTimeout(() => {
-                    func.apply(this, args);
-                }, delay);
-            };
-        };
-
+        // --- FOKUS RESTORATION LOGIC ---
+        // Variabel global untuk menyimpan status fokus dan posisi kursor sebelum render ulang
+        let lastFocusState = { id: null, position: 0 };
+        
         // Utility: Mengambil data dari localStorage
         const getLSState = (key, defaultValue) => {
             try {
@@ -94,16 +102,25 @@
         let appState = {
             role: getLSState(LS_ROLE_KEY, null),
             nickname: getLSState(LS_NICKNAME_KEY, ''),
-            page: 'appointments',
+            page: 'appointments', // Default page
             appointments: getLSState(LS_APPOINTMENTS_KEY, []),
             materials: getLSState(LS_MATERIALS_KEY, []),
             chatMessages: getLSState(LS_CHAT_KEY, []),
             tempNickname: '',
-            loginError: '',
+            tempPassword: '', 
+            loginError: '', // Digunakan juga untuk pesan sukses reset
         };
 
         // Fungsi untuk memperbarui state dan me-render ulang aplikasi
         function updateState(newState) {
+            // 1. Capture focus state before re-render
+            const activeEl = document.activeElement;
+            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                lastFocusState = { id: activeEl.id, position: activeEl.selectionStart };
+            } else {
+                lastFocusState = { id: null, position: 0 };
+            }
+
             Object.assign(appState, newState);
 
             // Perbarui localStorage untuk state yang persisten
@@ -116,19 +133,18 @@
             renderApp(); // Panggil fungsi render utama
         }
 
-        // Debounced function untuk memperbarui state nickname
-        const debouncedUpdateNickname = debounce((value) => {
-            // Hanya panggil updateState jika value berbeda atau ada error yang perlu dihapus
-            if (appState.tempNickname !== value || appState.loginError) {
-                 updateState({ tempNickname: value, loginError: '' });
-            }
-        }, 300); // Tunda 300ms setelah user berhenti mengetik
+        // Fungsi langsung untuk memperbarui state input (menggantikan debounce)
+        const updateTempInput = (field, value) => {
+             updateState({ [field]: value, loginError: '' });
+        };
 
-        // --- HANDLER LOGIN/LOGOUT ---
+
+        // --- HANDLER LOGIN/LOGOUT/RESET ---
 
         const handleLogin = (selectedRole) => {
-            // Pastikan kita menggunakan nilai terbaru dari tempNickname
             const cleanedNickname = appState.tempNickname.trim();
+            const cleanedPassword = appState.tempPassword.trim();
+            const lowerNickname = cleanedNickname.toLowerCase();
 
             if (!cleanedNickname) {
                 updateState({ loginError: 'Nama panggilan tidak boleh kosong.' });
@@ -136,19 +152,65 @@
             }
 
             if (selectedRole === 'guru') {
-                if (!GURU_ACCOUNTS.includes(cleanedNickname.toLowerCase())) {
-                    // Pesan kesalahan yang lebih umum dan tidak spesifik
+                // Guru BK hanya butuh nickname yang terdaftar
+                if (cleanedPassword) {
+                    updateState({ loginError: 'Guru BK tidak memerlukan kata sandi.' });
+                    return;
+                }
+                if (!GURU_ACCOUNTS.includes(lowerNickname)) {
                     updateState({ loginError: 'Akses Ditolak. Nama panggilan tidak dikenali sebagai Guru BK.' });
+                    return;
+                }
+            } else if (selectedRole === 'siswa') {
+                // Siswa butuh nama lengkap dan kata sandi yang benar
+                if (!SISWA_ACCOUNTS.includes(lowerNickname)) {
+                    updateState({ loginError: 'Nama siswa tidak terdaftar di sistem. Pastikan nama lengkap sudah benar.' });
+                    return;
+                }
+                
+                // PERBAIKAN: Bandingkan kata sandi tanpa memperhatikan huruf besar/kecil (case-insensitive)
+                if (cleanedPassword.toLowerCase() !== SISWA_PASSWORD.toLowerCase()) {
+                    updateState({ loginError: 'Kata sandi salah.' });
                     return;
                 }
             }
 
+            // Jika login berhasil
             updateState({
                 role: selectedRole,
                 nickname: cleanedNickname,
                 loginError: '',
                 tempNickname: '',
+                tempPassword: '',
             });
+        };
+
+        const handlePasswordReset = () => {
+            const cleanedNickname = appState.tempNickname.trim();
+            const lowerNickname = cleanedNickname.toLowerCase();
+
+            if (!cleanedNickname) {
+                updateState({ loginError: 'Nama lengkap tidak boleh kosong.' });
+                return;
+            }
+
+            // Cek apakah nama terdaftar sebagai Siswa
+            if (SISWA_ACCOUNTS.includes(lowerNickname)) {
+                // Simulasi reset berhasil (karena password hardcoded)
+                // Navigasi kembali ke halaman login (role: null) dan tampilkan pesan sukses melalui loginError
+                updateState({
+                    page: 'appointments', 
+                    role: null,
+                    nickname: '',
+                    tempNickname: '',
+                    tempPassword: '',
+                    loginError: `Reset berhasil! Kata sandi untuk **${cleanedNickname}** telah diatur ulang ke kata sandi default siswa: **${SISWA_PASSWORD}**. Silakan masuk.`,
+                });
+            } else {
+                updateState({ 
+                    loginError: 'Nama siswa tidak terdaftar. Pastikan nama lengkap sudah benar.' 
+                });
+            }
         };
 
         const handleLogout = () => {
@@ -159,21 +221,29 @@
                 role: null,
                 nickname: '',
                 tempNickname: '',
+                tempPassword: '',
                 page: 'appointments'
             });
         };
 
-        // --- RENDER KOMPONEN KHUSUS ---
+        // --- RENDER KOMPONEN KHUSUS: LOGIN ---
         
         function renderLogin() {
             const container = document.getElementById('app-root');
             container.className = "min-h-screen flex items-center justify-center bg-gray-100 p-4";
             
-            // Variabel untuk menyimpan nilai input yang terikat ke state
             const currentNickname = appState.tempNickname;
+            const currentPassword = appState.tempPassword;
 
-            // Membangun fungsi oninput yang memanggil debounced handler
-            const onInputHandler = `debouncedUpdateNickname(this.value)`;
+            const onInputNickname = `updateTempInput('tempNickname', this.value)`;
+            const onInputPassword = `updateTempInput('tempPassword', this.value)`;
+
+            // Tentukan apakah pesan error adalah pesan sukses (dari reset)
+            const isSuccessMessage = appState.loginError.includes('Reset berhasil!');
+            const messageClass = isSuccessMessage 
+                ? 'text-green-800 bg-green-100' 
+                : 'text-red-800 bg-red-100';
+            const iconData = isSuccessMessage ? 'check-circle' : 'x-circle';
 
             const html = `
                 <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl border border-indigo-100">
@@ -181,34 +251,50 @@
                     
                     <div class="space-y-4">
                         <div>
-                            <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">Nama Panggilan Anda (Wajib)</label>
+                            <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">Nama Panggilan / Nama Lengkap</label>
                             <input
                                 id="nickname"
                                 type="text"
                                 value="${currentNickname}"
                                 placeholder="Masukkan nama Anda..."
                                 class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                oninput="${onInputHandler}"
+                                oninput="${onInputNickname}"
                             />
+                        </div>
+                        
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Kata Sandi</label>
+                            <input
+                                id="password"
+                                type="password"
+                                value="${currentPassword}"
+                                placeholder="Masukkan kata sandi..."
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                oninput="${onInputPassword}"
+                            />
+                            <!-- Tautan Lupa Kata Sandi -->
+                            <button 
+                                onclick="updateState({ tempNickname: '', tempPassword: '', loginError: '', page: 'resetPassword' })"
+                                class="mt-2 text-sm text-indigo-600 hover:text-indigo-800 transition block text-right font-medium">
+                                Lupa Kata Sandi?
+                            </button>
                         </div>
 
                         ${appState.loginError ? `
-                            <div class="flex items-center p-3 text-sm text-red-800 bg-red-100 rounded-lg" role="alert">
-                                <i data-lucide="x-circle" class="w-4 h-4 mr-2 flex-shrink-0"></i>
+                            <div class="flex items-center p-3 text-sm ${messageClass} rounded-lg" role="alert">
+                                <i data-lucide="${iconData}" class="w-4 h-4 mr-2 flex-shrink-0"></i>
                                 <div>${appState.loginError}</div>
                             </div>
                         ` : ''}
                         
                         <button
                             onclick="handleLogin('siswa')"
-                            ${!currentNickname ? 'disabled' : ''}
                             class="w-full py-3 px-4 rounded-xl text-lg font-semibold text-white bg-green-600 hover:bg-green-700 transition shadow-md disabled:opacity-50 flex items-center justify-center space-x-2"
                         >
                             <i data-lucide="corner-down-left" class="w-5 h-5"></i> Masuk Sebagai SISWA
                         </button>
                         <button
                             onclick="handleLogin('guru')"
-                            ${!currentNickname ? 'disabled' : ''}
                             class="w-full py-3 px-4 rounded-xl text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-md disabled:opacity-50 flex items-center justify-center space-x-2"
                         >
                             <i data-lucide="briefcase" class="w-5 h-5"></i> Masuk Sebagai GURU BK
@@ -218,19 +304,64 @@
             `;
             container.innerHTML = html;
             lucide.createIcons();
-            
-            // Set fokus kembali ke input setelah re-render (jika ada nilai)
-            if (currentNickname) {
-                const nicknameInput = document.getElementById('nickname');
-                if (nicknameInput) {
-                    nicknameInput.focus();
-                    // Pindahkan kursor ke akhir teks
-                    nicknameInput.setSelectionRange(currentNickname.length, currentNickname.length);
-                }
-            }
         }
 
-        // --- RENDER FITUR: CHAT LOKAL ---
+        // --- RENDER KOMPONEN KHUSUS: RESET PASSWORD ---
+
+        function renderPasswordReset() {
+            const container = document.getElementById('app-root');
+            container.className = "min-h-screen flex items-center justify-center bg-gray-100 p-4";
+
+            const currentNickname = appState.tempNickname;
+            // Gunakan updateTempInput agar fokus terjaga saat mengetik
+            const onInputNickname = `updateTempInput('tempNickname', this.value)`;
+
+            const html = `
+                <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl border border-indigo-100">
+                    <h1 class="text-3xl font-extrabold text-indigo-700 mb-6 text-center">Reset Kata Sandi</h1>
+                    <p class="text-center text-gray-600 mb-6 text-sm">Masukkan **Nama Lengkap Siswa** Anda untuk mereset kata sandi ke default.</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap Siswa</label>
+                            <input
+                                id="nickname"
+                                type="text"
+                                value="${currentNickname}"
+                                placeholder="Masukkan nama lengkap Anda (case-insensitive)..."
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                oninput="${onInputNickname}"
+                            />
+                        </div>
+                        
+                        ${appState.loginError ? `
+                            <div class="flex items-center p-3 text-sm text-red-800 bg-red-100 rounded-lg" role="alert">
+                                <i data-lucide="x-circle" class="w-4 h-4 mr-2 flex-shrink-0"></i>
+                                <div>${appState.loginError}</div>
+                            </div>
+                        ` : ''}
+
+                        <button
+                            onclick="handlePasswordReset()"
+                            class="w-full py-3 px-4 rounded-xl text-lg font-semibold text-white bg-green-600 hover:bg-green-700 transition shadow-md disabled:opacity-50 flex items-center justify-center space-x-2"
+                        >
+                            <i data-lucide="refresh-ccw" class="w-5 h-5"></i> Reset Kata Sandi
+                        </button>
+
+                        <button
+                            onclick="updateState({ page: 'appointments', loginError: '', tempNickname: '', tempPassword: '' })"
+                            class="w-full py-2 px-4 rounded-xl text-sm font-medium text-indigo-600 border border-indigo-200 bg-white hover:bg-indigo-50 transition flex items-center justify-center space-x-2"
+                        >
+                            <i data-lucide="log-in" class="w-5 h-5"></i> Kembali ke Login
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        // --- RENDER FITUR: CHAT LOKAL (TIDAK BERUBAH) ---
         function renderChat() {
             const { chatMessages, nickname, role } = appState;
             
@@ -304,8 +435,8 @@
                 const newMessages = [...appState.chatMessages, message];
                 updateState({ chatMessages: newMessages });
 
-                // Bersihkan input
-                inputEl.value = '';
+                // Bersihkan input (akan dirender ulang oleh updateState)
+                // inputEl.value = ''; // Tidak diperlukan karena updateState membersihkan state tempNickname
                 
                 // Panggil scroll setelah re-render (timeout kecil membantu)
                 setTimeout(() => {
@@ -317,7 +448,7 @@
             }
         }
         
-        // --- RENDER FITUR: MATERI ---
+        // --- RENDER FITUR: MATERI (TIDAK BERUBAH) ---
         function handleMaterialUpload(event) {
             event.preventDefault();
             const titleInput = document.getElementById('material-title');
@@ -335,7 +466,11 @@
             };
 
             const newMaterials = [newMaterial, ...appState.materials];
-            updateState({ materials: newMaterials });
+            updateState({ materials: newMaterials, 
+                // Reset nilai input setelah pengiriman
+                materialTitle: '', 
+                materialContent: '' 
+            });
 
             titleInput.value = '';
             contentInput.value = '';
@@ -408,8 +543,8 @@
             return `
                 <div class="space-y-8">
                     <h2 class="text-2xl font-extrabold text-indigo-700">Materi Inspirasi & Motivasi</h2>
-                    ${uploadFormHtml}
                     <div class="mt-8">
+                        ${uploadFormHtml}
                         <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mb-4">Daftar Materi (${materials.length})</h3>
                         <div class="space-y-4">
                             ${materialsListHtml}
@@ -419,7 +554,7 @@
             `;
         }
 
-        // --- RENDER FITUR: JANJI TEMU (GURU) ---
+        // --- RENDER FITUR: JANJI TEMU (GURU - TIDAK BERUBAH) ---
         function handleAppointmentUpdate(id, newStatus) {
             const updatedAppointments = appState.appointments.map(app =>
                 app.id === id ? { ...app, status: newStatus } : app
@@ -507,7 +642,7 @@
             `;
         }
         
-        // --- RENDER FITUR: JANJI TEMU (SISWA) ---
+        // --- RENDER FITUR: JANJI TEMU (SISWA - TIDAK BERUBAH) ---
 
         function handleSiswaAppointmentSubmit(event) {
             event.preventDefault();
@@ -591,7 +726,7 @@
             `;
         }
         
-        // --- RENDER NAVIGASI ---
+        // --- RENDER NAVIGASI (TIDAK BERUBAH) ---
         function renderNav() {
             const navItems = [
                 { id: 'appointments', label: 'Janji Temu', icon: 'book-open' },
@@ -622,7 +757,7 @@
             `;
         }
 
-        // --- RENDER KONTEN UTAMA ---
+        // --- RENDER KONTEN UTAMA (UPDATE UNTUK HALAMAN RESET) ---
         function renderContent() {
             switch (appState.page) {
                 case 'appointments':
@@ -640,7 +775,22 @@
 
         function renderApp() {
             if (!appState.role) {
-                renderLogin();
+                // Tentukan apakah harus merender halaman reset atau login
+                if (appState.page === 'resetPassword') {
+                    renderPasswordReset();
+                } else {
+                    renderLogin();
+                }
+
+                // PERBAIKAN FOKUS: Restore fokus dan posisi kursor setelah rendering
+                if (lastFocusState.id === 'nickname' || lastFocusState.id === 'password') {
+                    const inputToFocus = document.getElementById(lastFocusState.id);
+                    if (inputToFocus) {
+                        inputToFocus.focus();
+                        // Pastikan seleksi dikembalikan dengan benar
+                        inputToFocus.setSelectionRange(lastFocusState.position, lastFocusState.position);
+                    }
+                }
                 return;
             }
 
@@ -691,6 +841,16 @@
             
             // Panggil Lucide Icons agar ikon muncul
             lucide.createIcons();
+            
+            // Restore fokus untuk input/textarea non-login (chat, material, appointment)
+            if (lastFocusState.id) {
+                 const inputToFocus = document.getElementById(lastFocusState.id);
+                 if (inputToFocus) {
+                     inputToFocus.focus();
+                     // Pastikan seleksi dikembalikan dengan benar
+                     inputToFocus.setSelectionRange(lastFocusState.position, lastFocusState.position);
+                 }
+             }
 
             // Khusus untuk chat: pastikan scroll ke bawah setelah konten dimuat
             if (appState.page === 'chat') {
