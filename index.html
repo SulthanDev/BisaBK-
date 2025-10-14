@@ -3,1411 +3,959 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>bisaBK - Konseling</title>
-    <!-- Muat Tailwind CSS -->
+    <title>bisaBK - Aplikasi Konseling Digital</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Muat Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
     <style>
-        /* Menggunakan font Inter untuk tampilan yang bersih */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            background-color: #f7f9fc;
         }
-        /* Menyesuaikan area scroll chat */
-        .chat-area {
-            height: calc(100vh - 250px); /* Ketinggian disesuaikan */
+        .container-card {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+        }
+        .main-content {
+            min-height: 50vh;
+        }
+        .sidebar {
+            background-color: #1e3a8a; /* Biru gelap untuk sidebar */
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        .nav-button {
+            transition: background-color 0.2s;
+        }
+        .nav-button:hover {
+            background-color: #3b82f6;
+        }
+        .header-bg {
+            background-color: #4f46e5; /* Ungu */
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #3730a3;
+        }
+        .input-style {
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        @media (max-width: 768px) {
+            .container-card {
+                margin: 1rem;
+                padding: 1rem;
+            }
         }
     </style>
+    <!-- FIX: Mengganti URL proyek Supabase dengan URL CDN library Supabase JS yang benar -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <div id="app-root" class="min-h-screen flex flex-col">
-        <!-- Konten Aplikasi akan dirender di sini oleh JavaScript -->
+
+<div class="container-card">
+    <header class="header-bg text-white p-4 rounded-t-xl shadow-lg">
+        <h1 class="text-3xl font-bold">bisaBK | Aplikasi Konseling Digital</h1>
+        <p class="mt-1">Layanan Bimbingan dan Konseling berbasis online</p>
+    </header>
+
+    <div id="app-container" class="mt-6">
+        <!-- Konten aplikasi akan dirender di sini -->
     </div>
 
-    <script>
-        // --- KONSTANTA & UTILITY ---
-        const LS_ROLE_KEY = 'bisaBK_role';
-        const LS_NICKNAME_KEY = 'bisaBK_nickname';
-        const LS_APPOINTMENTS_KEY = 'bisaBK_appointments';
-        const LS_MATERIALS_KEY = 'bisaBK_materials';
-        const LS_CHAT_KEY = 'bisaBK_chat';
-        const LS_STUDENT_PASSWORDS_KEY = 'bisaBK_student_passwords'; 
-        const LS_PASSWORD_LOG_KEY = 'bisaBK_password_logs'; 
-        // Kunci baru untuk daftar siswa yang bisa berubah
-        const LS_STUDENT_ACCOUNTS_KEY = 'bisaBK_student_accounts'; 
+    <footer class="mt-8 pt-4 border-t text-center text-gray-500 text-sm">
+        &copy; 2024 bisaBK - Layanan BK Digital.
+    </footer>
+</div>
 
-        // Kredensial Super Admin
-        const SUPER_ADMIN_PASSWORD = 'nimda';
-        
-        // Kredensial Guru BK
-        const GURU_BK_CREDENTIALS = [
-            { username: 'admingofar', password: 'gurubk1', displayName: 'Guru BK Gofar' },
-            { username: 'adminrohman', password: 'gurubk2', displayName: 'Guru BK Rohman' }
-        ];
-        
-        // Daftar akun Siswa yang diizinkan (initial hardcoded list)
-        const INITIAL_SISWA_ACCOUNTS = [
-            'adifa melani putri', 'anastasya zajuli', 'andini putri prasetyo', 'annisa setiawan',
-            'aura zahrani', 'aurellia rahman', 'cantika pujiarti', 'darriell riyadi',
-            'fazle mawla akhtar sopian', 'fitriyani sari', 'galang rizky sadaya', 'indira arpiana',
-            'irfan hafizh rizoullah', 'kalila azhara', 'kaniya julia utami', 'kautsar hidayatullah',
-            'mika al ghani jasin', 'muhamad farid ramadhan', 'muhamad langgi yuri pradipta', 'muhammad addar outhni',
-            'muhammad awa abdurrohman', 'nadira indriani', 'nia putri ramadhani', 'putri alysa keyla',
-            'raditya gunawan', 'raid dhayla jabar', 'rafi ahmad al gibran', 'raina maira hermawan',
-            'raisya ariyanti', 'razip adi pratama', 'rindu salsabila', 'rubiana azzahra',
-            'shinta rahayu pertiwi sujai', 'siti alifta azzahra khumairoh', 'sulthan rifoi ghibransyah',
-            'tiara dwi ramadhani'
-        ];
-        // KATA SANDI SISWA default
-        const SISWA_PASSWORD = '12346';
+<script>
+    // --- KONFIGURASI SUPABASE (GANTI INI DENGAN KUNCI ASLI ANDA) ---
+    // Ganti nilai placeholder ini dengan Project URL dan Anon Public Key dari Supabase Anda
+    const SUPABASE_URL = 'https://lnizkypygqsqkukpwrxg.supabase.co'; 
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaXpreXB5Z3FzcWt1a3B3cnhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0NTY4NTUsImV4cCI6MjA3NjAzMjg1NX0.dTO7Rn8ZIR9CVR3iah0ax3MZTDuD1Jvy8Wegdvc33pk'; 
+    
+    // FIX: Menggunakan window.supabase untuk mengakses objek global Supabase yang dimuat dari CDN.
+    // Karena CDN di <head> sudah diperbaiki, baris ini seharusnya berfungsi.
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    // Kata sandi default untuk akun siswa baru atau hasil reset
+    const DEFAULT_PASSWORD = '12346'; 
 
-        // Utility: Mengambil data dari localStorage
-        const getLSState = (key, defaultValue) => {
-            try {
-                const storedValue = localStorage.getItem(key);
-                if (storedValue) {
-                    return JSON.parse(storedValue);
-                }
-                return defaultValue;
-            } catch (error) {
-                console.error(`Error reading localStorage key "${key}":`, error);
-                return defaultValue;
-            }
-        };
+    // --- STATE GLOBAL ---
+    let appState = {
+        currentPage: 'login',
+        user: null, // Berisi { username, role, displayName } jika sudah login
+        currentRole: 'siswa', // 'siswa', 'guru', 'admin' - digunakan di halaman login
+        accounts: [], // Data akun dari Supabase
+        appointments: [], // Data janji temu dari Supabase
+        materials: [], // Data materi dari Supabase
+        logAudit: [], // Data log audit dari Supabase
+        chatMessages: [], // Data chat lokal dari Supabase
+        isDataLoaded: false,
+    };
 
-        // Utility: Menyimpan data ke localStorage
-        const setLSState = (key, value) => {
-            try {
-                if (value === null || value === undefined) {
-                    localStorage.removeItem(key);
-                } else {
-                    localStorage.setItem(key, JSON.stringify(value));
-                }
-            } catch (error) {
-                console.error(`Error writing localStorage key "${key}":`, error);
-            }
-        };
-        
-        // Utility: Format waktu
-        const formatTime = (timestamp) => {
-            const date = new Date(timestamp);
-            return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        };
+    // Helper untuk memuat data awal dari Supabase
+    async function loadInitialData() {
+        try {
+            // 1. Load Semua Akun (untuk keperluan verifikasi login)
+            const { data: accountsData, error: accountsError } = await supabase
+                .from('accounts')
+                .select('id, username, role, password, display_name');
 
-        // Utility: Mengambil dan menginisialisasi daftar siswa yang dinamis
-        const getStudentAccounts = () => {
-            let accounts = getLSState(LS_STUDENT_ACCOUNTS_KEY, null);
-            if (!accounts || accounts.length === 0) {
-                setLSState(LS_STUDENT_ACCOUNTS_KEY, INITIAL_SISWA_ACCOUNTS);
-                return INITIAL_SISWA_ACCOUNTS;
-            }
-            return accounts;
-        };
-        
-        // Simpan data siswa yang dimuat
-        let studentAccounts = getStudentAccounts();
+            if (accountsError) throw accountsError;
+            appState.accounts = accountsData;
 
-        // Utility: Mengambil dan menginisialisasi password siswa dari localStorage
-        const getStudentPasswords = () => {
-            let passwords = getLSState(LS_STUDENT_PASSWORDS_KEY, null);
-            if (!passwords) {
-                passwords = {};
-            }
+            // 2. Load Janji Temu
+            const { data: appointmentsData, error: appointmentsError } = await supabase
+                .from('appointments')
+                .select('*')
+                .order('timestamp', { ascending: false });
+
+            if (appointmentsError) throw appointmentsError;
+            appState.appointments = appointmentsData;
+
+            // 3. Load Materi
+            const { data: materialsData, error: materialsError } = await supabase
+                .from('materials')
+                .select('*')
+                .order('timestamp', { ascending: false });
+
+            if (materialsError) throw materialsError;
+            appState.materials = materialsData;
             
-            // Pastikan semua siswa yang ada di studentAccounts memiliki password
-            let changes = false;
-            studentAccounts.forEach(name => {
-                if (!passwords[name.toLowerCase()]) {
-                    passwords[name.toLowerCase()] = SISWA_PASSWORD; // Simpan dalam huruf kecil
-                    changes = true;
-                }
-            });
+            // 4. Load Log Audit (Jika tabel log_audit ada, jika tidak, diabaikan)
+            // Catatan: Jika tabel 'log_audit' belum dibuat di Supabase, bagian ini akan diabaikan.
+            // Untuk kesederhanaan, kita akan menyimpan log audit di memori lokal untuk demo ini.
             
-            // Hapus password siswa yang tidak lagi ada di studentAccounts (cleanup)
-            for (const lowerName in passwords) {
-                if (!studentAccounts.some(name => name.toLowerCase() === lowerName)) {
-                    delete passwords[lowerName];
-                    changes = true;
-                }
-            }
+            appState.isDataLoaded = true;
+            render();
 
-            if (changes) {
-                 setLSState(LS_STUDENT_PASSWORDS_KEY, passwords);
-            }
-            return passwords;
+        } catch (error) {
+            console.error('Gagal memuat data awal dari Supabase:', error.message);
+            displayMessage(`ERROR: Gagal memuat data. Periksa koneksi/kunci Supabase dan skema tabel. Detail: ${error.message}`, 'error');
+        }
+    }
+
+    // PENGATURAN REALTIME DARI SUPABASE
+    function setupRealtimeListeners() {
+        // Listener untuk accounts (jika ada update oleh admin)
+        supabase.channel('accounts')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, async () => {
+                await loadInitialData();
+            })
+            .subscribe();
+
+        // Listener untuk appointments (jika ada janji baru atau status diubah)
+        supabase.channel('appointments')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, async () => {
+                await loadInitialData();
+            })
+            .subscribe();
+
+        // Listener untuk materials (jika admin/guru menambah materi)
+        supabase.channel('materials')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'materials' }, async () => {
+                await loadInitialData();
+            })
+            .subscribe();
+            
+        // Catatan: Karena kita tidak menggunakan fitur Auth Supabase, perubahan ini bersifat anonim, 
+        // pastikan Anda sudah mengatur RLS Policy dengan benar (Anon/USING(true)) agar listener bekerja.
+    }
+
+    // --- UTILITY DAN AUTH ---
+
+    function getLoggedInUser(username, password, role) {
+        return appState.accounts.find(
+            acc => acc.username.toLowerCase() === username.toLowerCase() && 
+                   acc.password === password && 
+                   acc.role === role
+        );
+    }
+
+    function displayMessage(text, type = 'info') {
+        const container = document.getElementById('app-container');
+        if (!container) return;
+        
+        // Hapus pesan lama jika ada
+        const existingMsg = document.getElementById('message-box');
+        if (existingMsg) existingMsg.remove();
+
+        const colorMap = {
+            info: 'bg-blue-100 border-blue-400 text-blue-700',
+            success: 'bg-green-100 border-green-400 text-green-700',
+            error: 'bg-red-100 border-red-400 text-red-700'
         };
 
-        // Simpan data password siswa yang dimuat
-        let studentPasswords = getStudentPasswords();
-
-        // --- FOKUS RESTORATION LOGIC ---
-        let lastFocusState = { id: null, position: 0 };
+        const messageBox = document.createElement('div');
+        messageBox.id = 'message-box';
+        messageBox.className = `p-4 mb-4 border rounded-lg ${colorMap[type]}`;
+        messageBox.innerHTML = `<strong>Pesan:</strong> ${text}`;
         
-        
-        // --- STATE GLOBAL ---
-        let appState = {
-            role: getLSState(LS_ROLE_KEY, null), // 'siswa', 'guru', 'admin'
-            nickname: getLSState(LS_NICKNAME_KEY, ''),
-            page: 'appointments', // Default page
-            appointments: getLSState(LS_APPOINTMENTS_KEY, []),
-            materials: getLSState(LS_MATERIALS_KEY, []),
-            chatMessages: getLSState(LS_CHAT_KEY, []),
-            passwordLogs: getLSState(LS_PASSWORD_LOG_KEY, []), 
-            tempNickname: '',
-            tempPassword: '', 
-            tempNewPassword: '', 
-            loginError: '', 
-            // State untuk transisi Admin Login
-            adminLoginStep: 1, // 1: Pilih Role, 2: Masukkan Password Admin
-        };
+        container.prepend(messageBox);
 
-        // Fungsi untuk memperbarui state dan me-render ulang aplikasi
-        function updateState(newState) {
-            // 1. Capture focus state before re-render
-            const activeEl = document.activeElement;
-            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
-                lastFocusState = { id: activeEl.id, position: activeEl.selectionStart };
-            } else {
-                lastFocusState = { id: null, position: 0 };
-            }
+        // Hapus pesan setelah 5 detik
+        setTimeout(() => {
+            if(messageBox) messageBox.remove();
+        }, 5000);
+    }
 
-            Object.assign(appState, newState);
+    function handleLogin() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const role = appState.currentRole;
 
-            // Perbarui localStorage untuk state yang persisten
-            if ('role' in newState) setLSState(LS_ROLE_KEY, appState.role);
-            if ('nickname' in newState) setLSState(LS_NICKNAME_KEY, appState.nickname);
-            if ('appointments' in newState) setLSState(LS_APPOINTMENTS_KEY, appState.appointments);
-            if ('materials' in newState) setLSState(LS_MATERIALS_KEY, appState.materials);
-            if ('chatMessages' in newState) setLSState(LS_CHAT_KEY, appState.chatMessages);
-            if ('passwordLogs' in newState) setLSState(LS_PASSWORD_LOG_KEY, appState.passwordLogs);
-            // studentAccounts dan studentPasswords dihandle di fungsi CRUD masing-masing.
-            
-            renderApp(); // Panggil fungsi render utama
+        if (!username || !password) {
+            displayMessage('Nama pengguna dan kata sandi harus diisi.', 'error');
+            return;
         }
 
-        // Fungsi langsung untuk memperbarui state input
-        const updateTempInput = (field, value) => {
-             // Reset error saat input berubah
-             updateState({ [field]: value, loginError: '' });
-        };
+        const user = getLoggedInUser(username, password, role);
 
-
-        // --- HANDLER LOGIN/LOGOUT/RESET/CHANGE ---
-        const handleLogin = (selectedRole) => {
-            const cleanedNickname = appState.tempNickname.trim();
-            const cleanedPassword = appState.tempPassword.trim();
-            const lowerNickname = cleanedNickname.toLowerCase();
-
-            if (selectedRole === 'siswa') {
-                if (!cleanedNickname || !cleanedPassword) {
-                    updateState({ loginError: 'Nama dan kata sandi siswa harus diisi.' });
-                    return;
-                }
-                // Cek akun terhadap daftar siswa yang dinamis
-                if (!studentAccounts.some(name => name.toLowerCase() === lowerNickname)) {
-                    updateState({ loginError: 'Nama siswa tidak terdaftar di sistem. Pastikan nama lengkap sudah benar.' });
-                    return;
-                }
-                
-                const storedPassword = studentPasswords[lowerNickname];
-
-                if (cleanedPassword !== storedPassword) {
-                    updateState({ loginError: 'Kata sandi salah.' });
-                    return;
-                }
-
-            } else if (selectedRole === 'guru') {
-                if (!cleanedNickname || !cleanedPassword) {
-                    updateState({ loginError: 'Nama pengguna dan kata sandi Guru BK harus diisi.' });
-                    return;
-                }
-                const guruAccount = GURU_BK_CREDENTIALS.find(g => g.username.toLowerCase() === lowerNickname);
-                
-                if (!guruAccount) {
-                    updateState({ loginError: 'Nama pengguna Guru BK tidak dikenali.' });
-                    return;
-                }
-                
-                if (cleanedPassword !== guruAccount.password) {
-                    updateState({ loginError: 'Kata sandi Guru BK salah.' });
-                    return;
-                }
-                
-                // Jika login Guru BK berhasil
-                updateState({
-                    role: 'guru',
-                    nickname: guruAccount.displayName,
-                    loginError: '',
-                    tempNickname: '',
-                    tempPassword: '',
-                    page: 'appointments', // Arahkan ke appointments
-                });
-                return;
-            } else if (selectedRole === 'admin_check') {
-                // Proses verifikasi password Admin
-                if (cleanedPassword !== SUPER_ADMIN_PASSWORD) {
-                    updateState({ loginError: 'Kata sandi Admin salah.' });
-                    return;
-                }
-                
-                // Jika login Super Admin berhasil
-                updateState({
-                    role: 'admin', // Super Admin role
-                    nickname: 'Admin (Super User)', // Nama tetap
-                    loginError: '',
-                    tempNickname: '',
-                    tempPassword: '',
-                    adminLoginStep: 1, // Reset step
-                    page: 'userManagement', // Arahkan ke userManagement
-                });
-                return;
-            }
-
-            // Jika login Siswa berhasil
-            updateState({
-                role: 'siswa',
-                nickname: cleanedNickname,
-                loginError: '',
-                tempNickname: '',
-                tempPassword: '',
-                page: 'appointments', // Arahkan ke appointments
-            });
-        };
-
-        // Reset password siswa secara mandiri (ke default 12346)
-        const handleStudentSelfReset = () => {
-            const cleanedNickname = appState.tempNickname.trim();
-            const lowerNickname = cleanedNickname.toLowerCase();
-
-            if (!cleanedNickname) {
-                updateState({ loginError: 'Nama lengkap tidak boleh kosong.' });
-                return;
-            }
-
-            // Cek akun terhadap daftar siswa yang dinamis
-            if (studentAccounts.some(name => name.toLowerCase() === lowerNickname)) {
-                studentPasswords[lowerNickname] = SISWA_PASSWORD;
-                setLSState(LS_STUDENT_PASSWORDS_KEY, studentPasswords);
-
-                // Catat log untuk self-reset
-                const newLogEntry = {
-                    id: Date.now(),
-                    siswaName: lowerNickname, 
-                    timestamp: Date.now(),
-                    action: 'Reset Password Mandiri (Lupa Password)',
-                    actor: 'Siswa',
-                };
-                const updatedLogs = [newLogEntry, ...appState.passwordLogs];
-
-                updateState({
-                    page: 'appointments', 
-                    role: null,
-                    nickname: '',
-                    tempNickname: '',
-                    tempPassword: '',
-                    passwordLogs: updatedLogs,
-                    loginError: `Reset berhasil! Kata sandi untuk **${cleanedNickname}** telah diatur ulang ke kata sandi default: **${SISWA_PASSWORD}**. Silakan masuk.`,
-                });
-            } else {
-                updateState({ 
-                    loginError: 'Nama siswa tidak terdaftar. Pastikan nama lengkap sudah benar.' 
-                });
-            }
-        };
-        
-        // Admin Reset Password Paksa (hanya dipanggil dari halaman User Management)
-        function handleAdminPasswordReset(siswaName) {
-             const lowerSiswaName = siswaName.toLowerCase();
-             // Reset password di studentPasswords ke nilai default
-             studentPasswords[lowerSiswaName] = SISWA_PASSWORD;
-             setLSState(LS_STUDENT_PASSWORDS_KEY, studentPasswords);
-
-             // Catat log untuk reset oleh Admin
-             const newLogEntry = {
-                 id: Date.now(),
-                 siswaName: siswaName, 
-                 timestamp: Date.now(),
-                 action: 'Reset Password Paksa',
-                 actor: appState.nickname,
-             };
-             const updatedLogs = [newLogEntry, ...appState.passwordLogs];
-
-             // Beri feedback di UI dan update log
-             updateState({
-                 loginError: `Kata sandi siswa **${siswaName}** berhasil direset paksa ke default: **${SISWA_PASSWORD}**.`,
-                 passwordLogs: updatedLogs,
-             });
+        if (user) {
+            appState.user = user;
+            appState.currentPage = user.role === 'siswa' ? 'siswa-home' : (user.role === 'guru' ? 'guru-home' : 'admin-home');
+            displayMessage(`Selamat datang, ${user.display_name}!`, 'success');
+            render();
+        } else {
+            displayMessage('Login gagal. Periksa nama pengguna, kata sandi, dan peran yang Anda pilih.', 'error');
         }
+    }
+    
+    // Fungsi untuk merender pesan error/sukses dari Supabase
+    function handleSupabaseResponse(error, successMessage) {
+        if (error) {
+            console.error('Supabase Error:', error);
+            displayMessage(`Gagal melakukan operasi: ${error.message}`, 'error');
+            return false;
+        }
+        displayMessage(successMessage, 'success');
+        return true;
+    }
 
-        // Admin Hapus Akun Siswa Permanen
-        function handleAdminAccountDelete(siswaName) {
-             const lowerSiswaName = siswaName.toLowerCase();
-             
-             // 1. Konfirmasi penghapusan (menggunakan window.confirm() tidak diizinkan, jadi pakai konfirmasi logis)
-             if (!confirm(`APAKAH ANDA YAKIN INGIN MENGHAPUS akun siswa ${siswaName} secara permanen? Semua data janji temu akan hilang.`)) {
-                 return;
-             }
+    // --- HANDLER SISWA ---
 
-             // 2. Hapus dari dynamic student list (studentAccounts)
-             const newStudentAccounts = studentAccounts.filter(name => name.toLowerCase() !== lowerSiswaName);
-             studentAccounts = newStudentAccounts; 
-             setLSState(LS_STUDENT_ACCOUNTS_KEY, newStudentAccounts);
+    function handleSiswaChangePassword() {
+        const oldPass = document.getElementById('oldPassword').value;
+        const newPass = document.getElementById('newPassword').value;
 
-             // 3. Hapus dari passwords
-             const newStudentPasswords = { ...studentPasswords };
-             delete newStudentPasswords[lowerSiswaName];
-             studentPasswords = newStudentPasswords;
-             setLSState(LS_STUDENT_PASSWORDS_KEY, newStudentPasswords);
-
-             // 4. Hapus associated appointments
-             const newAppointments = appState.appointments.filter(app => app.siswaName.toLowerCase() !== lowerSiswaName);
-
-             // 5. Catat log
-             const newLogEntry = {
-                 id: Date.now(),
-                 siswaName: siswaName, 
-                 timestamp: Date.now(),
-                 action: 'Hapus Akun Permanen',
-                 actor: appState.nickname,
-             };
-             const updatedLogs = [newLogEntry, ...appState.passwordLogs];
-
-             // 6. Update state dan berikan feedback
-             updateState({
-                 appointments: newAppointments,
-                 passwordLogs: updatedLogs,
-                 loginError: `Akun siswa **${siswaName}** dan semua data terkait berhasil dihapus permanen.`,
-             });
+        if (oldPass !== appState.user.password) {
+            displayMessage('Kata sandi lama salah.', 'error');
+            return;
+        }
+        if (newPass.length < 5) {
+            displayMessage('Kata sandi baru minimal 5 karakter.', 'error');
+            return;
         }
         
-        function handlePasswordChange() {
-            if (appState.role !== 'siswa') return;
-            
-            const { nickname } = appState;
-            const currentPassword = appState.tempPassword.trim();
-            const newPassword = appState.tempNewPassword.trim();
-            const lowerNickname = nickname.toLowerCase(); 
-
-            if (!currentPassword || !newPassword) {
-                updateState({ loginError: 'Kata sandi lama dan baru tidak boleh kosong.' });
-                return;
-            }
-            if (newPassword.length < 5) {
-                updateState({ loginError: 'Kata sandi baru minimal harus 5 karakter.' });
-                return;
-            }
-            if (currentPassword === newPassword) {
-                updateState({ loginError: 'Kata sandi baru harus berbeda dari kata sandi lama.' });
+        // Update di Supabase
+        updatePasswordInSupabase(appState.user.username, newPass);
+    }
+    
+    async function updatePasswordInSupabase(username, newPass) {
+        try {
+            const userToUpdate = appState.accounts.find(acc => acc.username.toLowerCase() === username.toLowerCase());
+            if (!userToUpdate) {
+                displayMessage(`Akun ${username} tidak ditemukan.`, 'error');
                 return;
             }
 
-            const storedPassword = studentPasswords[lowerNickname];
+            const { error } = await supabase
+                .from('accounts')
+                .update({ password: newPass })
+                .eq('username', username);
 
-            if (currentPassword !== storedPassword) {
-                updateState({ loginError: 'Kata sandi lama yang Anda masukkan salah.' });
-                return;
+            if (handleSupabaseResponse(error, `Kata sandi untuk ${username} berhasil diperbarui.`)) {
+                // Update state lokal
+                appState.user.password = newPass; 
+                // Segera refresh data dari Supabase untuk update akun di state global
+                await loadInitialData();
+                render();
             }
+        } catch (e) {
+            displayMessage(`Error saat memperbarui sandi: ${e.message}`, 'error');
+        }
+    }
 
-            studentPasswords[lowerNickname] = newPassword;
-            setLSState(LS_STUDENT_PASSWORDS_KEY, studentPasswords);
-            
-            const newLogEntry = {
-                id: Date.now(),
-                siswaName: nickname, 
-                timestamp: Date.now(),
-                action: 'Ganti Kata Sandi Mandiri',
-                actor: 'Siswa',
-            };
-            const updatedLogs = [newLogEntry, ...appState.passwordLogs];
-
-            updateState({
-                page: 'appointments', 
-                loginError: `Kata sandi berhasil diubah! Silakan gunakan kata sandi baru Anda selanjutnya.`,
-                tempPassword: '',
-                tempNewPassword: '',
-                passwordLogs: updatedLogs, 
-            });
+    async function handleSiswaAppointmentSubmit() {
+        const reason = document.getElementById('appointmentReason').value.trim();
+        if (!reason) {
+            displayMessage('Alasan janji temu harus diisi.', 'error');
+            return;
         }
 
-
-        const handleLogout = () => {
-            localStorage.removeItem(LS_ROLE_KEY);
-            localStorage.removeItem(LS_NICKNAME_KEY);
-            // Reset semua state terkait sesi
-            updateState({
-                role: null,
-                nickname: '',
-                tempNickname: '',
-                tempPassword: '',
-                tempNewPassword: '',
-                page: 'appointments',
-                loginError: '', 
-                adminLoginStep: 1, // Pastikan step reset
-            });
+        const newAppointment = {
+            siswa_name: appState.user.display_name,
+            reason: reason,
+            status: 'Pending',
         };
 
-        // --- RENDER KOMPONEN KHUSUS: LOGIN ---
+        const { error } = await supabase
+            .from('appointments')
+            .insert([newAppointment]);
         
-        function renderLogin() {
-            const container = document.getElementById('app-root');
-            container.className = "min-h-screen flex items-center justify-center bg-gray-100 p-4";
-            
-            const isSuccessMessage = appState.loginError.includes('berhasil!');
-            const messageClass = isSuccessMessage 
-                ? 'text-green-800 bg-green-100 border-green-300' 
-                : 'text-red-800 bg-red-100 border-red-300';
-            const iconData = isSuccessMessage ? 'check-circle' : 'x-circle';
+        if (handleSupabaseResponse(error, 'Janji temu berhasil diajukan! Menunggu persetujuan Guru BK.')) {
+            // Bersihkan input dan refresh data
+            document.getElementById('appointmentReason').value = '';
+            await loadInitialData();
+            render();
+        }
+    }
+    
+    function handleSiswaResetPassword() {
+        const usernameInput = document.getElementById('resetUsername').value.trim();
+        const userToReset = appState.accounts.find(
+            acc => acc.username.toLowerCase() === usernameInput.toLowerCase() && acc.role === 'siswa'
+        );
 
-            // --- ADMIN LOGIN STEP 2: MASUKKAN PASSWORD NIMDA ---
-            if (appState.adminLoginStep === 2) {
-                const currentPassword = appState.tempPassword;
-                const onInputPassword = `updateTempInput('tempPassword', this.value)`;
+        if (!userToReset) {
+            displayMessage('Nama pengguna Siswa tidak terdaftar.', 'error');
+            return;
+        }
+
+        // Admin dapat reset sandi siswa
+        if (appState.user && appState.user.role === 'admin') {
+            updatePasswordInSupabase(userToReset.username, DEFAULT_PASSWORD);
+            displayMessage(`Kata sandi Siswa ${userToReset.display_name} berhasil direset ke sandi default!`, 'success');
+        } else {
+             // Siswa melakukan reset mandiri (hanya bisa ke sandi default)
+            updatePasswordInSupabase(userToReset.username, DEFAULT_PASSWORD);
+        }
+    }
+
+
+    // --- HANDLER GURU/ADMIN ---
+
+    async function handleUpdateAppointmentStatus(id, newStatus) {
+        const { error } = await supabase
+            .from('appointments')
+            .update({ status: newStatus })
+            .eq('id', id);
+
+        if (handleSupabaseResponse(error, `Status Janji Temu berhasil diubah menjadi ${newStatus}.`)) {
+            await loadInitialData();
+            render();
+        }
+    }
+
+    async function handleAdminDeleteStudent(id) {
+        const userToDelete = appState.accounts.find(acc => acc.id === id && acc.role === 'siswa');
+        if (!userToDelete) return;
+
+        if (confirm(`Yakin ingin menghapus akun siswa ${userToDelete.display_name} (${userToDelete.username})?`)) {
+            const { error } = await supabase
+                .from('accounts')
+                .delete()
+                .eq('id', id);
+
+            if (handleSupabaseResponse(error, `Akun siswa ${userToDelete.display_name} berhasil dihapus.`)) {
+                await loadInitialData();
+                render();
+            }
+        }
+    }
+    
+    async function handleAdminResetPassword(id) {
+        const userToReset = appState.accounts.find(acc => acc.id === id && acc.role === 'siswa');
+        if (!userToReset) return;
+
+        if (confirm(`Yakin ingin mereset kata sandi akun siswa ${userToReset.display_name} (${userToReset.username})?`)) {
+            updatePasswordInSupabase(userToReset.username, DEFAULT_PASSWORD);
+        }
+    }
+    
+    async function handleAdminAddStudent() {
+        const username = document.getElementById('newUsername').value.trim().toLowerCase();
+        const displayName = document.getElementById('newDisplayName').value.trim();
+
+        if (!username || !displayName) {
+            displayMessage('Nama pengguna dan Nama Lengkap harus diisi.', 'error');
+            return;
+        }
+        
+        if (appState.accounts.some(acc => acc.username.toLowerCase() === username)) {
+            displayMessage(`Nama pengguna '${username}' sudah digunakan.`, 'error');
+            return;
+        }
+
+        const newUser = {
+            username: username,
+            role: 'siswa',
+            password: DEFAULT_PASSWORD, // Sandi default
+            display_name: displayName
+        };
+
+        const { error } = await supabase
+            .from('accounts')
+            .insert([newUser]);
+
+        if (handleSupabaseResponse(error, `Akun Siswa ${displayName} berhasil ditambahkan dengan sandi default (${DEFAULT_PASSWORD}).`)) {
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newDisplayName').value = '';
+            await loadInitialData();
+            render();
+        }
+    }
+
+
+    async function handleGuruUploadMaterial() {
+        const title = document.getElementById('materialTitle').value.trim();
+        const content = document.getElementById('materialContent').value.trim();
+
+        if (!title || !content) {
+            displayMessage('Judul dan konten materi harus diisi.', 'error');
+            return;
+        }
+
+        const newMaterial = {
+            title: title,
+            content: content,
+        };
+
+        const { error } = await supabase
+            .from('materials')
+            .insert([newMaterial]);
+        
+        if (handleSupabaseResponse(error, 'Materi inspirasi berhasil diunggah!')) {
+            document.getElementById('materialTitle').value = '';
+            document.getElementById('materialContent').value = '';
+            await loadInitialData();
+            render();
+        }
+    }
+
+
+    // --- RENDERING VIEWS ---
+
+    function renderLogin() {
+        return `
+            <div class="max-w-md mx-auto bg-gray-50 p-6 rounded-lg shadow-xl">
+                <h2 class="text-2xl font-semibold text-center mb-6 text-gray-800">Masuk ke Portal</h2>
                 
-                const htmlStep2 = `
-                    <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl border border-indigo-100">
-                        <h1 class="text-3xl font-extrabold text-red-700 mb-6 text-center">Admin (Super User) Login</h1>
-                        <p class="text-center text-gray-600 mb-4">Masukkan kata sandi Admin rahasia:</p>
-                        
+                <div class="flex justify-center space-x-2 mb-6 p-1 bg-gray-200 rounded-full">
+                    ${['siswa', 'guru', 'admin'].map(role => `
+                        <button 
+                            onclick="appState.currentRole='${role}'; render();"
+                            class="flex-1 px-4 py-2 text-sm font-medium rounded-full nav-button capitalize transition ${appState.currentRole === role ? 'bg-indigo-600 text-white shadow-md' : 'bg-transparent text-gray-700 hover:bg-gray-300'}"
+                        >
+                            ${role === 'siswa' ? 'Siswa' : (role === 'guru' ? 'Guru BK' : 'Admin')}
+                        </button>
+                    `).join('')}
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">Nama Pengguna</label>
+                        <input type="text" id="username" class="input-style mt-1" placeholder="Masukkan ID atau NIM Anda">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Kata Sandi</label>
+                        <input type="password" id="password" class="input-style mt-1" placeholder="Kata Sandi">
+                    </div>
+                    
+                    <button onclick="handleLogin()" class="btn-primary w-full mt-4 text-lg">
+                        Masuk sebagai ${appState.currentRole === 'siswa' ? 'Siswa' : (appState.currentRole === 'guru' ? 'Guru BK' : 'Admin')}
+                    </button>
+                </div>
+
+                <div class="mt-6 text-center text-sm text-gray-600">
+                    <p>Lupa Kata Sandi? Masukkan ID Siswa di bawah:</p>
+                    <input type="text" id="resetUsername" class="input-style mt-2 mb-2 w-2/3" placeholder="Masukkan ID Siswa">
+                    <button onclick="handleSiswaResetPassword()" class="btn-primary p-2 text-xs">Reset Sandi Siswa</button>
+                    <p class="mt-2 text-xs">Sandi akan direset ke default: ${DEFAULT_PASSWORD}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderSiswaHome() {
+        const appointments = appState.appointments.filter(app => app.siswa_name === appState.user.display_name);
+
+        return `
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Sidebar Navigasi -->
+                <div class="sidebar md:col-span-1 p-4">
+                    <h3 class="text-xl font-semibold mb-4">Portal Siswa</h3>
+                    <p class="mb-6">Halo, ${appState.user.display_name}!</p>
+                    <ul class="space-y-2">
+                        <li><button onclick="appState.currentPage='siswa-home'; render();" class="nav-button w-full text-left p-2 rounded-md bg-indigo-700">Beranda & Janji Temu</button></li>
+                        <li><button onclick="appState.currentPage='siswa-materi'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Materi Inspirasi</button></li>
+                        <li><button onclick="appState.currentPage='siswa-profile'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Ubah Sandi</button></li>
+                        <li><button onclick="appState.currentPage='chat'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Diskusi Kelompok (Chat)</button></li>
+                        <li><button onclick="appState.user=null; appState.currentPage='login'; render();" class="nav-button w-full text-left p-2 rounded-md bg-red-600 hover:bg-red-700 mt-4">Keluar</button></li>
+                    </ul>
+                </div>
+                
+                <!-- Konten Utama: Pengajuan Janji Temu -->
+                <div class="md:col-span-2 main-content space-y-8">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Pengajuan Janji Temu Konseling</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-indigo-200">
+                        <textarea id="appointmentReason" rows="4" class="input-style" placeholder="Tuliskan alasan atau topik konseling Anda secara singkat (misal: sulit fokus belajar, masalah karir, dsb.)"></textarea>
+                        <button onclick="handleSiswaAppointmentSubmit()" class="btn-primary w-full mt-3">Ajukan Janji Temu</button>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 mt-6 border-b pb-2">Riwayat Janji Temu Saya</h3>
+                    <div class="space-y-4">
+                        ${appointments.length === 0 
+                            ? '<p class="text-gray-500">Belum ada riwayat janji temu yang diajukan.</p>' 
+                            : appointments.map(app => `
+                                <div class="p-4 rounded-lg border ${app.status === 'Accepted' ? 'bg-green-50 border-green-300' : (app.status === 'Rejected' ? 'bg-red-50 border-red-300' : 'bg-yellow-50 border-yellow-300')} shadow-sm">
+                                    <p class="font-semibold">${app.reason}</p>
+                                    <p class="text-sm text-gray-600">Status: 
+                                        <span class="font-bold ${app.status === 'Accepted' ? 'text-green-600' : (app.status === 'Rejected' ? 'text-red-600' : 'text-yellow-600')}">
+                                            ${app.status}
+                                        </span>
+                                    </p>
+                                    <p class="text-xs text-gray-500">Diajukan: ${new Date(app.timestamp).toLocaleString('id-ID')}</p>
+                                </div>
+                            `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderSiswaMateri() {
+        return `
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Sidebar Navigasi -->
+                <div class="sidebar md:col-span-1 p-4">
+                    <h3 class="text-xl font-semibold mb-4">Portal Siswa</h3>
+                    <p class="mb-6">Halo, ${appState.user.display_name}!</p>
+                    <ul class="space-y-2">
+                        <li><button onclick="appState.currentPage='siswa-home'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Beranda & Janji Temu</button></li>
+                        <li><button onclick="appState.currentPage='siswa-materi'; render();" class="nav-button w-full text-left p-2 rounded-md bg-indigo-700">Materi Inspirasi</button></li>
+                        <li><button onclick="appState.currentPage='siswa-profile'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Ubah Sandi</button></li>
+                        <li><button onclick="appState.currentPage='chat'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Diskusi Kelompok (Chat)</button></li>
+                        <li><button onclick="appState.user=null; appState.currentPage='login'; render();" class="nav-button w-full text-left p-2 rounded-md bg-red-600 hover:bg-red-700 mt-4">Keluar</button></li>
+                    </ul>
+                </div>
+
+                <!-- Konten Utama: Materi -->
+                <div class="md:col-span-2 main-content space-y-6">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Materi Inspirasi & Edukasi</h2>
+                    <div class="space-y-4">
+                        ${appState.materials.length === 0 
+                            ? '<p class="text-gray-500">Belum ada materi inspirasi yang tersedia.</p>' 
+                            : appState.materials.map(mat => `
+                                <div class="p-5 rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition">
+                                    <h4 class="text-xl font-semibold text-indigo-700">${mat.title}</h4>
+                                    <p class="text-sm text-gray-500 mb-3">Diunggah: ${new Date(mat.timestamp).toLocaleDateString('id-ID')}</p>
+                                    <p class="text-gray-700 whitespace-pre-line">${mat.content}</p>
+                                </div>
+                            `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderSiswaProfile() {
+        return `
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Sidebar Navigasi -->
+                <div class="sidebar md:col-span-1 p-4">
+                    <h3 class="text-xl font-semibold mb-4">Portal Siswa</h3>
+                    <p class="mb-6">Halo, ${appState.user.display_name}!</p>
+                    <ul class="space-y-2">
+                        <li><button onclick="appState.currentPage='siswa-home'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Beranda & Janji Temu</button></li>
+                        <li><button onclick="appState.currentPage='siswa-materi'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Materi Inspirasi</button></li>
+                        <li><button onclick="appState.currentPage='siswa-profile'; render();" class="nav-button w-full text-left p-2 rounded-md bg-indigo-700">Ubah Sandi</button></li>
+                        <li><button onclick="appState.currentPage='chat'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Diskusi Kelompok (Chat)</button></li>
+                        <li><button onclick="appState.user=null; appState.currentPage='login'; render();" class="nav-button w-full text-left p-2 rounded-md bg-red-600 hover:bg-red-700 mt-4">Keluar</button></li>
+                    </ul>
+                </div>
+
+                <!-- Konten Utama: Ubah Sandi -->
+                <div class="md:col-span-2 main-content space-y-6">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Ubah Kata Sandi</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-indigo-200 max-w-lg">
+                        <p class="mb-4 text-gray-600">Anda dapat mengubah kata sandi Anda di sini. Nama Pengguna: <strong>${appState.user.username}</strong></p>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="oldPassword" class="block text-sm font-medium text-gray-700">Kata Sandi Lama</label>
+                                <input type="password" id="oldPassword" class="input-style mt-1">
+                            </div>
+                            <div>
+                                <label for="newPassword" class="block text-sm font-medium text-gray-700">Kata Sandi Baru</label>
+                                <input type="password" id="newPassword" class="input-style mt-1">
+                            </div>
+                            <button onclick="handleSiswaChangePassword()" class="btn-primary w-full mt-3">Perbarui Kata Sandi</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderGuruHome() {
+        const pendingAppointments = appState.appointments.filter(app => app.status === 'Pending');
+        const acceptedAppointments = appState.appointments.filter(app => app.status === 'Accepted');
+        const totalAppointments = appState.appointments.length;
+
+        return `
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Sidebar Navigasi -->
+                <div class="sidebar md:col-span-1 p-4">
+                    <h3 class="text-xl font-semibold mb-4">Portal Guru BK</h3>
+                    <p class="mb-6">Halo, ${appState.user.display_name}!</p>
+                    <ul class="space-y-2">
+                        <li><button onclick="appState.currentPage='guru-home'; render();" class="nav-button w-full text-left p-2 rounded-md bg-indigo-700">Beranda & Janji Temu</button></li>
+                        <li><button onclick="appState.currentPage='guru-materi-upload'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Unggah Materi</button></li>
+                        <li><button onclick="appState.currentPage='chat'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Diskusi Kelompok (Chat)</button></li>
+                        <li><button onclick="appState.user=null; appState.currentPage='login'; render();" class="nav-button w-full text-left p-2 rounded-md bg-red-600 hover:bg-red-700 mt-4">Keluar</button></li>
+                    </ul>
+                </div>
+                
+                <!-- Konten Utama: Janji Temu -->
+                <div class="md:col-span-2 main-content space-y-8">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Manajemen Janji Temu</h2>
+                    
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div class="bg-indigo-100 p-4 rounded-lg shadow-md">
+                            <p class="text-3xl font-bold text-indigo-700">${pendingAppointments.length}</p>
+                            <p class="text-sm text-indigo-700">Janji Pending</p>
+                        </div>
+                         <div class="bg-green-100 p-4 rounded-lg shadow-md">
+                            <p class="text-3xl font-bold text-green-700">${acceptedAppointments.length}</p>
+                            <p class="text-sm text-green-700">Janji Disetujui</p>
+                        </div>
+                        <div class="bg-gray-100 p-4 rounded-lg shadow-md">
+                            <p class="text-3xl font-bold text-gray-700">${totalAppointments}</p>
+                            <p class="text-sm text-gray-700">Total Janji</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Janji Pending -->
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mt-6">Janji Temu Menunggu Persetujuan</h3>
+                    <div class="space-y-4">
+                        ${pendingAppointments.length === 0 
+                            ? '<p class="text-gray-500">Tidak ada janji temu yang menunggu persetujuan.</p>' 
+                            : pendingAppointments.map(app => `
+                                <div class="p-4 rounded-lg border border-yellow-300 bg-yellow-50 shadow-sm">
+                                    <p class="font-semibold text-lg text-yellow-800">${app.siswa_name}</p>
+                                    <p class="text-gray-700">Alasan: ${app.reason}</p>
+                                    <p class="text-xs text-gray-500 mb-3">Diajukan: ${new Date(app.timestamp).toLocaleString('id-ID')}</p>
+                                    <div class="mt-2 space-x-2">
+                                        <button onclick="handleUpdateAppointmentStatus(${app.id}, 'Accepted')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded-md">Setujui</button>
+                                        <button onclick="handleUpdateAppointmentStatus(${app.id}, 'Rejected')" class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded-md">Tolak</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                    </div>
+
+                    <!-- Riwayat Janji Lain -->
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mt-8">Riwayat Janji Temu Lainnya</h3>
+                    <div class="space-y-4">
+                         ${appState.appointments.filter(app => app.status !== 'Pending').map(app => `
+                                <div class="p-4 rounded-lg border ${app.status === 'Accepted' ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'} shadow-sm">
+                                    <p class="font-semibold">${app.siswa_name} - ${app.reason}</p>
+                                    <p class="text-sm text-gray-600">Status: 
+                                        <span class="font-bold ${app.status === 'Accepted' ? 'text-green-600' : 'text-red-600'}">
+                                            ${app.status}
+                                        </span>
+                                    </p>
+                                    <p class="text-xs text-gray-500">Tanggal: ${new Date(app.timestamp).toLocaleDateString('id-ID')}</p>
+                                </div>
+                            `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderGuruMateriUpload() {
+        return `
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Sidebar Navigasi -->
+                <div class="sidebar md:col-span-1 p-4">
+                    <h3 class="text-xl font-semibold mb-4">Portal Guru BK</h3>
+                    <p class="mb-6">Halo, ${appState.user.display_name}!</p>
+                    <ul class="space-y-2">
+                        <li><button onclick="appState.currentPage='guru-home'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Beranda & Janji Temu</button></li>
+                        <li><button onclick="appState.currentPage='guru-materi-upload'; render();" class="nav-button w-full text-left p-2 rounded-md bg-indigo-700">Unggah Materi</button></li>
+                        <li><button onclick="appState.currentPage='chat'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Diskusi Kelompok (Chat)</button></li>
+                        <li><button onclick="appState.user=null; appState.currentPage='login'; render();" class="nav-button w-full text-left p-2 rounded-md bg-red-600 hover:bg-red-700 mt-4">Keluar</button></li>
+                    </ul>
+                </div>
+                
+                <!-- Konten Utama: Unggah Materi -->
+                <div class="md:col-span-2 main-content space-y-6">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Unggah Materi Inspirasi Baru</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-indigo-200">
                         <div class="space-y-4">
                             <div>
-                                <label for="admin-password" class="block text-sm font-medium text-gray-700 mb-1">Kata Sandi Admin</label>
-                                <input
-                                    id="admin-password"
-                                    type="password"
-                                    value="${currentPassword}"
-                                    placeholder="Masukkan kata sandi..."
-                                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
-                                    oninput="${onInputPassword}"
-                                />
+                                <label for="materialTitle" class="block text-sm font-medium text-gray-700">Judul Materi</label>
+                                <input type="text" id="materialTitle" class="input-style mt-1" placeholder="Misal: 5 Tips Fokus Belajar">
                             </div>
-
-                            ${appState.loginError ? `
-                                <div class="flex items-center p-3 text-sm ${messageClass} rounded-lg border" role="alert">
-                                    <i data-lucide="${iconData}" class="w-4 h-4 mr-2 flex-shrink-0"></i>
-                                    <div>${appState.loginError}</div>
-                                </div>
-                            ` : ''}
-
-                            <button
-                                onclick="handleLogin('admin_check')"
-                                class="w-full py-3 px-4 rounded-xl text-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition shadow-md flex items-center justify-center space-x-2"
-                            >
-                                <i data-lucide="shield" class="w-5 h-5"></i> Masuk Sebagai Admin
-                            </button>
-                            <button
-                                onclick="updateState({ adminLoginStep: 1, tempPassword: '', loginError: '' })"
-                                class="w-full py-2 px-4 rounded-xl text-sm font-medium text-gray-600 border border-gray-300 bg-white hover:bg-gray-50 transition"
-                            >
-                                Kembali ke Pilihan Login
-                            </button>
-                        </div>
-                    </div>
-                `;
-                container.innerHTML = htmlStep2;
-                lucide.createIcons();
-                return;
-            }
-
-
-            // --- LOGIN STEP 1: PILIH ROLE (SISWA / GURU BK / ADMIN) ---
-            
-            const currentNickname = appState.tempNickname;
-            const currentPassword = appState.tempPassword;
-
-            const onInputNickname = `updateTempInput('tempNickname', this.value)`;
-            const onInputPassword = `updateTempInput('tempPassword', this.value)`;
-
-            const html = `
-                <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl border border-indigo-100">
-                    <h1 class="text-3xl font-extrabold text-indigo-700 mb-6 text-center">bisaBK :)</h1>
-                    
-                    <div class="space-y-4">
-                        <h2 class="text-xl font-bold text-gray-700 border-b pb-2">Login Siswa & Guru BK</h2>
-                        <div>
-                            <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">Nama Pengguna / Nama Lengkap</label>
-                            <input
-                                id="nickname"
-                                type="text"
-                                value="${currentNickname}"
-                                placeholder="Masukkan nama Anda..."
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                oninput="${onInputNickname}"
-                            />
-                        </div>
-                        
-                        <div>
-                            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Kata Sandi</label>
-                            <input
-                                id="password"
-                                type="password"
-                                value="${currentPassword}"
-                                placeholder="Masukkan kata sandi..."
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                oninput="${onInputPassword}"
-                            />
-                            <!-- Tautan Lupa Kata Sandi Siswa -->
-                            <button 
-                                onclick="updateState({ tempNickname: '', tempPassword: '', loginError: '', page: 'resetPassword' })"
-                                class="mt-2 text-sm text-indigo-600 hover:text-indigo-800 transition block text-right font-medium">
-                                Lupa Kata Sandi Siswa?
-                            </button>
-                        </div>
-
-                        ${appState.loginError ? `
-                            <div class="flex items-center p-3 text-sm ${messageClass} rounded-lg border" role="alert">
-                                <i data-lucide="${iconData}" class="w-4 h-4 mr-2 flex-shrink-0"></i>
-                                <div>${appState.loginError}</div>
-                            </div>
-                        ` : ''}
-                        
-                        <button
-                            onclick="handleLogin('siswa')"
-                            class="w-full py-3 px-4 rounded-xl font-semibold text-white bg-green-600 hover:bg-green-700 transition shadow-md flex items-center justify-center space-x-2"
-                        >
-                            <i data-lucide="corner-down-left" class="w-5 h-5"></i> Masuk Sebagai SISWA
-                        </button>
-                        <button
-                            onclick="handleLogin('guru')"
-                            class="w-full py-3 px-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-md flex items-center justify-center space-x-2"
-                        >
-                            <i data-lucide="briefcase" class="w-5 h-5"></i> Masuk Sebagai GURU BK
-                        </button>
-                        
-                        <div class="border-t pt-4">
-                             <button
-                                onclick="updateState({ adminLoginStep: 2, tempNickname: '', tempPassword: '', loginError: '' })"
-                                class="w-full py-2 px-4 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition shadow-md flex items-center justify-center space-x-2"
-                            >
-                                <i data-lucide="shield-alert" class="w-5 h-5"></i> Masuk Sebagai ADMIN
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            container.innerHTML = html;
-            lucide.createIcons();
-        }
-
-        // --- RENDER KOMPONEN KHUSUS: RESET PASSWORD SISWA (Self Reset) ---
-
-        function renderPasswordReset() {
-            const container = document.getElementById('app-root');
-            container.className = "min-h-screen flex items-center justify-center bg-gray-100 p-4";
-
-            const currentNickname = appState.tempNickname;
-            const onInputNickname = `updateTempInput('tempNickname', this.value)`;
-
-            const html = `
-                <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl border border-indigo-100">
-                    <h1 class="text-3xl font-extrabold text-indigo-700 mb-6 text-center">Lupa Kata Sandi Siswa</h1>
-                    <p class="text-center text-gray-600 mb-6 text-sm">Masukkan **Nama Lengkap Siswa** Anda untuk mereset kata sandi ke default (**${SISWA_PASSWORD}**).</p>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap Siswa</label>
-                            <input
-                                id="nickname"
-                                type="text"
-                                value="${currentNickname}"
-                                placeholder="Nama lengkap Anda harus terdaftar..."
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                oninput="${onInputNickname}"
-                            />
-                        </div>
-                        
-                        ${appState.loginError ? `
-                            <div class="flex items-center p-3 text-sm text-red-800 bg-red-100 rounded-lg border border-red-300" role="alert">
-                                <i data-lucide="x-circle" class="w-4 h-4 mr-2 flex-shrink-0"></i>
-                                <div>${appState.loginError}</div>
-                            </div>
-                        ` : ''}
-
-                        <button
-                            onclick="handleStudentSelfReset()"
-                            class="w-full py-3 px-4 rounded-xl text-lg font-semibold text-white bg-green-600 hover:bg-green-700 transition shadow-md disabled:opacity-50 flex items-center justify-center space-x-2"
-                        >
-                            <i data-lucide="refresh-ccw" class="w-5 h-5"></i> Reset Kata Sandi
-                        </button>
-
-                        <button
-                            onclick="updateState({ page: 'appointments', loginError: '', tempNickname: '', tempPassword: '' })"
-                            class="w-full py-2 px-4 rounded-xl text-sm font-medium text-indigo-600 border border-indigo-200 bg-white hover:bg-indigo-50 transition flex items-center justify-center space-x-2"
-                        >
-                            <i data-lucide="log-in" class="w-5 h-5"></i> Kembali ke Login
-                        </button>
-                    </div>
-                </div>
-            `;
-            container.innerHTML = html;
-            lucide.createIcons();
-        }
-        
-        // --- RENDER FITUR BARU: KELOLA PENGGUNA (Hanya untuk Admin) ---
-        function renderAdminUserManagement() {
-            if (appState.role !== 'admin') return '';
-
-            // Gunakan daftar siswa yang dinamis
-            const currentStudentAccounts = studentAccounts.sort();
-            
-            const studentListHtml = currentStudentAccounts.map(siswaName => {
-                const lowerName = siswaName.toLowerCase();
-                const currentPassword = studentPasswords[lowerName] || SISWA_PASSWORD;
-                
-                return `
-                    <div class="p-4 bg-white shadow-sm rounded-lg border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center space-y-2 md:space-y-0 md:space-x-4">
-                        <div class="flex-1 min-w-0">
-                            <p class="font-bold text-gray-800 capitalize">${siswaName}</p>
-                            <p class="text-xs text-gray-500">Sandi Saat Ini: <span class="font-mono">${currentPassword}</span></p>
-                        </div>
-                        <div class="flex space-x-2 flex-shrink-0">
-                            <button
-                                onclick="handleAdminPasswordReset('${siswaName}')"
-                                class="py-2 px-3 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition flex items-center space-x-1"
-                                title="Reset ke default: ${SISWA_PASSWORD}"
-                            >
-                                <i data-lucide="key-round" class="w-4 h-4"></i>
-                                <span>Reset Sandi</span>
-                            </button>
-                            <button
-                                onclick="handleAdminAccountDelete('${siswaName}')"
-                                class="py-2 px-3 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition flex items-center space-x-1"
-                                title="Hapus Akun Permanen"
-                            >
-                                <i data-lucide="user-x" class="w-4 h-4"></i>
-                                <span>Hapus Akun Permanen</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            return `
-                <div class="space-y-6">
-                    <h2 class="text-2xl font-extrabold text-red-700">Kelola Pengguna Siswa</h2>
-                    <p class="text-gray-600">Admin dapat melihat, mereset kata sandi ke default (**${SISWA_PASSWORD}**), atau menghapus akun siswa secara permanen.</p>
-                    
-                    ${appState.loginError ? `
-                        <div class="flex items-center p-3 text-sm bg-green-100 text-green-800 rounded-lg shadow-md border border-green-300" role="alert">
-                            <i data-lucide="check-circle" class="w-4 h-4 mr-2 flex-shrink-0"></i>
-                            <div>${appState.loginError}</div>
-                        </div>
-                    ` : ''}
-
-                    <div class="space-y-3">
-                        ${currentStudentAccounts.length === 0 ? '<p class="text-gray-500 italic">Tidak ada akun siswa yang terdaftar.</p>' : studentListHtml}
-                    </div>
-                </div>
-            `;
-        }
-        
-        // --- RENDER FITUR: LOG AUDIT GANTI PASSWORD (Hanya untuk Admin/Guru BK) ---
-        function renderAuditLog() {
-            if (appState.role !== 'admin' && appState.role !== 'guru') return '';
-            
-            const { passwordLogs } = appState;
-            
-            const logsHtml = passwordLogs.length === 0 ? 
-                `<p class="text-gray-500 italic p-4">Belum ada riwayat penggantian atau penghapusan kata sandi/akun yang tercatat.</p>` :
-                passwordLogs.map(log => `
-                    <div class="p-4 bg-white shadow-sm rounded-lg border border-indigo-100 flex justify-between items-center">
-                        <div>
-                            <p class="font-bold text-gray-800 capitalize">${log.siswaName}</p>
-                            <p class="text-sm text-gray-600">${log.action} oleh **${log.actor}**</p>
-                        </div>
-                        <span class="text-xs text-indigo-600 font-medium">${new Date(log.timestamp).toLocaleString('id-ID')}</span>
-                    </div>
-                `).join('');
-
-            return `
-                <div class="space-y-6">
-                    <h2 class="text-2xl font-extrabold text-indigo-700">Log Audit Pengelolaan Akun</h2>
-                    <p class="text-gray-600">Daftar riwayat perubahan kata sandi atau penghapusan akun siswa.</p>
-                    <div class="space-y-3">
-                        ${logsHtml}
-                    </div>
-                </div>
-            `;
-        }
-        
-        // --- RENDER FITUR: CHAT LOKAL ---
-        function renderChat() {
-            const { chatMessages, nickname, role } = appState;
-            
-            const messagesHtml = chatMessages.map(msg => {
-                const isSelf = msg.role === role;
-                let senderRoleText = 'Siswa';
-                if (msg.role === 'guru') senderRoleText = 'Guru BK';
-                if (msg.role === 'admin') senderRoleText = 'Admin';
-
-                const containerClass = isSelf ? 'flex justify-end' : 'flex justify-start';
-                const bubbleClass = isSelf
-                    ? (role === 'admin' ? 'bg-red-600 text-white' : (role === 'guru' ? 'bg-indigo-600 text-white' : 'bg-green-600 text-white')) + ' rounded-tl-xl rounded-bl-xl rounded-br-xl'
-                    : 'bg-white text-gray-800 rounded-tr-xl rounded-bl-xl rounded-br-xl shadow-md border';
-
-                return `
-                    <div class="${containerClass}">
-                        <div class="max-w-xs md:max-w-md lg:max-w-lg p-3 ${bubbleClass}">
-                            <p class="font-semibold text-sm mb-1">${msg.sender} <span class="text-xs font-normal opacity-70">(${senderRoleText})</span></p>
-                            <p class="text-base break-words">${msg.text}</p>
-                            <p class="text-xs mt-1 text-right opacity-80">${formatTime(msg.timestamp)}</p>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            const chatBodyHtml = chatMessages.length === 0 
-                ? `<p class="text-center text-gray-500 italic p-4">Belum ada pesan. Mulai percakapan...</p>`
-                : messagesHtml;
-
-            const html = `
-                <div class="flex flex-col h-full bg-gray-50 border border-gray-200 rounded-xl shadow-lg p-4">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Diskusi Kelompok (Chat)</h2>
-                    <div id="chat-messages" class="flex-1 overflow-y-auto space-y-3 mb-4 p-2 bg-white rounded-lg border chat-area">
-                        ${chatBodyHtml}
-                        <div id="chat-end"></div>
-                    </div>
-
-                    <div class="flex space-x-2">
-                        <input
-                            type="text"
-                            id="new-message-input"
-                            placeholder="Ketik pesan Anda..."
-                            class="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition"
-                            onkeypress="if (event.key === 'Enter') document.getElementById('send-message-btn').click()"
-                        />
-                        <button
-                            id="send-message-btn"
-                            onclick="handleSendMessage()"
-                            class="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition duration-200 shadow-md flex items-center justify-center"
-                            aria-label="Kirim Pesan"
-                        >
-                            <i data-lucide="send" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            return html;
-        }
-
-        function handleSendMessage() {
-            const inputEl = document.getElementById('new-message-input');
-            const newMessage = inputEl.value;
-
-            if (newMessage.trim()) {
-                const message = {
-                    id: Date.now(),
-                    sender: appState.nickname,
-                    role: appState.role,
-                    text: newMessage.trim(),
-                    timestamp: Date.now(),
-                };
-                
-                const newMessages = [...appState.chatMessages, message];
-                updateState({ chatMessages: newMessages });
-
-                setTimeout(() => {
-                    const chatEndRef = document.getElementById('chat-end');
-                    if (chatEndRef) {
-                        chatEndRef.scrollIntoView({ behavior: "smooth" });
-                    }
-                }, 10);
-            }
-        }
-
-        // --- RENDER FITUR: MATERI ---
-        function handleMaterialUpload(event) {
-            event.preventDefault();
-            const titleInput = document.getElementById('material-title');
-            const contentInput = document.getElementById('material-content');
-            const title = titleInput.value.trim();
-            const content = contentInput.value.trim();
-            
-            if (!title || !content) return;
-
-            const newMaterial = {
-                id: Date.now(),
-                title: title,
-                content: content,
-                timestamp: Date.now(),
-            };
-
-            const newMaterials = [newMaterial, ...appState.materials];
-            updateState({ materials: newMaterials });
-
-            titleInput.value = '';
-            contentInput.value = '';
-        }
-
-        function handleMaterialDelete(id) {
-            const newMaterials = appState.materials.filter(m => m.id !== id);
-            updateState({ materials: newMaterials });
-        }
-
-        function renderMaterials() {
-            const { materials, role } = appState;
-            const canEdit = role === 'guru' || role === 'admin';
-            
-            const uploadFormHtml = canEdit ? `
-                <div class="bg-white p-6 rounded-xl shadow-lg border border-indigo-200">
-                    <h3 class="text-xl font-semibold mb-4 text-gray-700 flex items-center"><i data-lucide="plus" class="w-5 h-5 mr-2"></i> Unggah Materi Baru</h3>
-                    <form onsubmit="handleMaterialUpload(event)" class="space-y-4">
-                        <div>
-                            <label for="material-title" class="block text-sm font-medium text-gray-700">Judul Materi</label>
-                            <input
-                                id="material-title"
-                                type="text"
-                                class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label for="material-content" class="block text-sm font-medium text-gray-700">Isi / Ringkasan Materi</label>
-                            <textarea
-                                id="material-content"
-                                rows="5"
-                                placeholder="Tuliskan poin-poin penting atau kutipan motivasi..."
-                                class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                required
-                            ></textarea>
-                        </div>
-                        <button
-                            type="submit"
-                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 transition"
-                        >
-                            Unggah Materi
-                        </button>
-                    </form>
-                </div>
-            ` : '';
-
-            const materialsListHtml = materials.length === 0 
-                ? `<p class="text-gray-500 italic">Belum ada materi yang diunggah.</p>`
-                : materials.map(material => `
-                    <div class="p-5 bg-white rounded-xl shadow-md border border-gray-200">
-                        <div class="flex justify-between items-start">
                             <div>
-                                <h4 class="text-lg font-bold text-gray-800">${material.title}</h4>
-                                <p class="text-xs text-gray-500 mb-2">Diunggah: ${new Date(material.timestamp).toLocaleDateString('id-ID')}</p>
+                                <label for="materialContent" class="block text-sm font-medium text-gray-700">Isi Konten</label>
+                                <textarea id="materialContent" rows="8" class="input-style mt-1" placeholder="Tuliskan isi materi di sini..."></textarea>
                             </div>
-                            ${canEdit ? `
-                                <button
-                                    onclick="handleMaterialDelete(${material.id})"
-                                    class="text-red-500 hover:text-red-700 transition p-1 rounded-full hover:bg-red-50"
-                                    aria-label="Hapus Materi"
-                                >
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                </button>
-                            ` : ''}
-                        </div>
-                        <p class="text-gray-600 mt-2 whitespace-pre-wrap">${material.content}</p>
-                    </div>
-                `).join('');
-
-            return `
-                <div class="space-y-8">
-                    <h2 class="text-2xl font-extrabold text-indigo-700">Materi Inspirasi & Motivasi</h2>
-                    <div class="mt-8 space-y-6">
-                        ${uploadFormHtml}
-                        <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mb-4">Daftar Materi (${materials.length})</h3>
-                        <div class="space-y-4">
-                            ${materialsListHtml}
+                            <button onclick="handleGuruUploadMaterial()" class="btn-primary w-full mt-3">Unggah Materi Sekarang</button>
                         </div>
                     </div>
-                </div>
-            `;
-        }
-        
-        // --- RENDER FITUR: JANJI TEMU (GURU/ADMIN Manager) ---
-        function handleAppointmentUpdate(id, newStatus) {
-            const updatedAppointments = appState.appointments.map(app =>
-                app.id === id ? { ...app, status: newStatus } : app
-            );
-            updateState({ appointments: updatedAppointments });
-        }
-
-        function handleAppointmentDelete(id) {
-            const newAppointments = appState.appointments.filter(app => app.id !== id);
-            updateState({ appointments: newAppointments });
-        }
-
-        function renderGuruAppointmentManager() {
-            const { appointments } = appState;
-            const pendingAppointments = appointments.filter(a => a.status === 'Pending');
-            const otherAppointments = appointments.filter(a => a.status !== 'Pending').sort((a, b) => b.timestamp - a.timestamp);
-
-            const statusClasses = {
-                'Pending': 'bg-yellow-100 text-yellow-800',
-                'Accepted': 'bg-green-100 text-green-800',
-                'Rejected': 'bg-red-100 text-red-800',
-            };
-
-            const pendingHtml = pendingAppointments.length > 0 ? `
-                <div class="bg-orange-50 p-4 rounded-xl border border-orange-200">
-                    <h3 class="text-xl font-semibold text-orange-700 mb-3 flex items-center">
-                        <i data-lucide="user-check" class="w-5 h-5 mr-2"></i> Janji Temu Menunggu Persetujuan (${pendingAppointments.length})
-                    </h3>
-                    <div class="space-y-3">
-                        ${pendingAppointments.map(app => `
-                            <div class="p-4 bg-white shadow-md rounded-lg border border-orange-300">
-                                <p class="font-bold text-gray-800">${app.siswaName}</p>
-                                <p class="text-sm text-gray-600">${app.reason}</p>
-                                <p class="text-xs font-medium mt-1">Diajukan: ${new Date(app.timestamp).toLocaleString('id-ID')}</p>
-                                <div class="mt-3 flex space-x-2">
-                                    <button
-                                        onclick="handleAppointmentUpdate(${app.id}, 'Accepted')"
-                                        class="py-1 px-3 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition"
-                                    >
-                                        Setujui
-                                    </button>
-                                    <button
-                                        onclick="handleAppointmentUpdate(${app.id}, 'Rejected')"
-                                        class="py-1 px-3 bg-red-500 text-white rounded-full text-sm hover:bg-red-600 transition"
-                                    >
-                                        Tolak
-                                    </button>
-                                </div>
+                    
+                    <h3 class="text-xl font-semibold text-gray-700 mt-8 border-b pb-2">Materi yang Sudah Diunggah</h3>
+                    ${appState.materials.length === 0 
+                        ? '<p class="text-gray-500">Tidak ada materi yang sudah diunggah.</p>' 
+                        : appState.materials.map(mat => `
+                            <div class="p-3 rounded-lg border border-gray-200 bg-gray-50">
+                                <h4 class="font-semibold">${mat.title}</h4>
+                                <p class="text-xs text-gray-500">Diunggah: ${new Date(mat.timestamp).toLocaleDateString('id-ID')}</p>
                             </div>
                         `).join('')}
-                    </div>
                 </div>
-            ` : '';
+            </div>
+        `;
+    }
 
-            const historyHtml = (otherAppointments.length === 0 && pendingAppointments.length === 0) ? 
-                `<p class="text-gray-500 italic">Belum ada riwayat janji temu.</p>` :
-                [...pendingAppointments, ...otherAppointments].sort((a, b) => b.timestamp - a.timestamp).map(app => `
-                    <div class="p-4 bg-white shadow-sm rounded-lg border border-gray-200 flex justify-between items-center">
-                        <div>
-                            <p class="font-bold text-lg text-gray-800">${app.siswaName}</p>
-                            <p class="text-sm text-gray-600 italic">Tujuan: ${app.reason}</p>
-                            <span class="text-xs font-medium px-2 py-1 rounded-full mt-1 inline-block ${statusClasses[app.status]}">
-                                Status: ${app.status}
-                            </span>
-                        </div>
-                        <button
-                            onclick="handleAppointmentDelete(${app.id})"
-                            class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50"
-                            aria-label="Hapus Janji Temu"
-                        >
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                `).join('');
-
-            return `
-                <div class="space-y-6">
-                    <h2 class="text-2xl font-extrabold text-indigo-700">Kelola Janji Temu Siswa</h2>
-                    ${pendingHtml}
-                    <h3 class="text-xl font-semibold text-gray-700 mt-6 border-b pb-2">Riwayat Janji Temu Lainnya</h3>
-                    <div class="space-y-3">
-                        ${historyHtml}
-                    </div>
+    function renderAdminHome() {
+        return `
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Sidebar Navigasi -->
+                <div class="sidebar md:col-span-1 p-4">
+                    <h3 class="text-xl font-semibold mb-4">Portal Admin</h3>
+                    <p class="mb-6">Halo, ${appState.user.display_name}!</p>
+                    <ul class="space-y-2">
+                        <li><button onclick="appState.currentPage='admin-home'; render();" class="nav-button w-full text-left p-2 rounded-md bg-indigo-700">Dashboard</button></li>
+                        <li><button onclick="appState.currentPage='admin-users'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Kelola Pengguna Siswa</button></li>
+                        <li><button onclick="appState.user=null; appState.currentPage='login'; render();" class="nav-button w-full text-left p-2 rounded-md bg-red-600 hover:bg-red-700 mt-4">Keluar</button></li>
+                    </ul>
                 </div>
-            `;
-        }
-
-        // --- RENDER FITUR: JANJI TEMU (SISWA) ---
-
-        function handleSiswaAppointmentSubmit(event) {
-            event.preventDefault();
-            const reasonInput = document.getElementById('appointment-reason');
-            const reason = reasonInput.value.trim();
-            
-            if (!reason) return;
-
-            const newAppointment = {
-                id: Date.now(),
-                siswaName: appState.nickname,
-                reason: reason,
-                status: 'Pending',
-                timestamp: Date.now(),
-            };
-
-            const newAppointments = [...appState.appointments, newAppointment];
-            updateState({ appointments: newAppointments });
-            reasonInput.value = ''; 
-        }
-
-        function renderSiswaAppointmentRequest() {
-            const { appointments, nickname } = appState;
-            const activeAppointments = appointments.filter(a => a.siswaName === nickname).sort((a, b) => b.timestamp - a.timestamp);
-
-            const statusClasses = {
-                'Pending': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-                'Accepted': 'bg-green-100 text-green-800 border-green-300',
-                'Rejected': 'bg-red-100 text-red-800 border-red-300',
-            };
-
-            const statusListHtml = activeAppointments.length === 0 ?
-                `<p class="text-gray-500 italic">Anda belum mengajukan janji temu.</p>` :
-                activeAppointments.map(app => `
-                    <div class="p-4 bg-white shadow-md rounded-lg border-l-4 ${statusClasses[app.status]}">
-                        <p class="font-bold text-gray-800">Tujuan: ${app.reason}</p>
-                        <div class="mt-1 flex justify-between items-center">
-                            <span class="text-sm font-medium px-2 py-1 rounded-full ${statusClasses[app.status]}">
-                                ${app.status}
-                            </span>
-                            <span class="text-xs text-gray-500">Diajukan: ${new Date(app.timestamp).toLocaleDateString('id-ID')}</span>
-                        </div>
-                        ${app.status === 'Accepted' ? '<p class="text-sm mt-2 text-green-700 font-medium">Janji temu Anda telah disetujui!</p>' : ''}
-                    </div>
-                `).join('');
-
-
-            return `
-                <div class="space-y-8">
-                    <h2 class="text-2xl font-extrabold text-indigo-700">Ajukan Janji Temu Konseling</h2>
+                
+                <!-- Konten Utama: Dashboard -->
+                <div class="md:col-span-2 main-content space-y-8">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Dashboard Admin</h2>
                     
-                    <div class="bg-white p-6 rounded-xl shadow-lg border">
-                        <h3 class="text-xl font-semibold mb-4 text-gray-700">Formulir Permintaan</h3>
-                        <form onsubmit="handleSiswaAppointmentSubmit(event)" class="space-y-4">
-                            <div>
-                                <label for="appointment-reason" class="block text-sm font-medium text-gray-700">Alasan/Tujuan Konseling</label>
-                                <textarea
-                                    id="appointment-reason"
-                                    rows="3"
-                                    placeholder="Contoh: Merasa kesulitan mengatur waktu belajar..."
-                                    class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                    required
-                                ></textarea>
-                            </div>
-                            <button
-                                type="submit"
-                                class="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
-                            >
-                                Ajukan Permintaan
-                            </button>
-                        </form>
-                    </div>
-
-                    <div class="mt-8">
-                        <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mb-4">Status Janji Temu Anda</h3>
-                        <div class="space-y-3">
-                            ${statusListHtml}
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div class="bg-blue-100 p-4 rounded-lg shadow-md">
+                            <p class="text-3xl font-bold text-blue-700">${appState.accounts.filter(a => a.role === 'siswa').length}</p>
+                            <p class="text-sm text-blue-700">Total Siswa</p>
+                        </div>
+                         <div class="bg-indigo-100 p-4 rounded-lg shadow-md">
+                            <p class="text-3xl font-bold text-indigo-700">${appState.accounts.filter(a => a.role === 'guru').length}</p>
+                            <p class="text-sm text-indigo-700">Total Guru BK</p>
+                        </div>
+                        <div class="bg-gray-100 p-4 rounded-lg shadow-md">
+                            <p class="text-3xl font-bold text-gray-700">${appState.appointments.length}</p>
+                            <p class="text-sm text-gray-700">Total Janji Temu</p>
                         </div>
                     </div>
+
+                    <div class="p-4 bg-yellow-100 border border-yellow-300 rounded-lg">
+                        <h3 class="font-semibold text-lg text-yellow-800">Peringatan Keamanan</h3>
+                        <p class="text-sm text-yellow-800">Pastikan Anda telah mengaktifkan **Row Level Security (RLS)** dan mengatur **Policies** yang ketat di Supabase untuk mengamankan data pengguna!</p>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 mt-8 border-b pb-2">Log Audit (Contoh Lokal)</h3>
+                    <div class="space-y-2 max-h-48 overflow-y-auto bg-gray-50 p-3 rounded-lg border">
+                        ${appState.logAudit.length === 0 
+                            ? '<p class="text-gray-500 text-sm">Belum ada aktivitas log (hanya mencatat log ubah/reset sandi).</p>' 
+                            : appState.logAudit.map(log => `<p class="text-xs text-gray-700"><strong>[${log.timestamp}]</strong> ${log.action} oleh ${log.user}</p>`).join('')}
+                    </div>
                 </div>
-            `;
-        }
+            </div>
+        `;
+    }
+
+    function renderAdminUserManagement() {
+        const students = appState.accounts.filter(a => a.role === 'siswa');
+
+        return `
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Sidebar Navigasi -->
+                <div class="sidebar md:col-span-1 p-4">
+                    <h3 class="text-xl font-semibold mb-4">Portal Admin</h3>
+                    <p class="mb-6">Halo, ${appState.user.display_name}!</p>
+                    <ul class="space-y-2">
+                        <li><button onclick="appState.currentPage='admin-home'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Dashboard</button></li>
+                        <li><button onclick="appState.currentPage='admin-users'; render();" class="nav-button w-full text-left p-2 rounded-md bg-indigo-700">Kelola Pengguna Siswa</button></li>
+                        <li><button onclick="appState.user=null; appState.currentPage='login'; render();" class="nav-button w-full text-left p-2 rounded-md bg-red-600 hover:bg-red-700 mt-4">Keluar</button></li>
+                    </ul>
+                </div>
+                
+                <!-- Konten Utama: Kelola Pengguna -->
+                <div class="md:col-span-2 main-content space-y-8">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Kelola Akun Siswa</h2>
+                    
+                    <!-- Form Tambah Akun Siswa Baru -->
+                    <div class="bg-gray-100 p-6 rounded-lg shadow-inner border border-gray-300">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-800">Tambah Akun Siswa Baru</h3>
+                        <div class="grid md:grid-cols-3 gap-4">
+                            <input type="text" id="newDisplayName" class="input-style col-span-1" placeholder="Nama Lengkap Siswa">
+                            <input type="text" id="newUsername" class="input-style col-span-1" placeholder="Nama Pengguna/ID Siswa">
+                            <button onclick="handleAdminAddStudent()" class="btn-primary col-span-1">Tambahkan Akun</button>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2">Sandi default otomatis: ${DEFAULT_PASSWORD}</p>
+                    </div>
+
+
+                    <h3 class="text-xl font-semibold text-gray-700 mt-8 border-b pb-2">Daftar Siswa (${students.length} Akun)</h3>
+                    <div class="space-y-4">
+                        ${students.length === 0 
+                            ? '<p class="text-gray-500">Tidak ada akun siswa terdaftar.</p>' 
+                            : students.map(student => `
+                                <div class="p-4 rounded-lg border border-indigo-200 bg-white shadow-sm flex justify-between items-center">
+                                    <div>
+                                        <p class="font-semibold">${student.display_name} <span class="text-sm text-gray-500">(${student.username})</span></p>
+                                        <p class="text-xs text-gray-400">ID Internal: ${student.id}</p>
+                                    </div>
+                                    <div class="space-x-2 flex">
+                                        <button onclick="handleAdminResetPassword(${student.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-1 rounded-md">Reset Sandi</button>
+                                        <button onclick="handleAdminDeleteStudent(${student.id})" class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded-md">Hapus Akun</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Placeholder for Chat functionality (using the same structure as other views)
+    function renderChat() {
+        const currentRoleText = appState.user.role === 'siswa' ? 'Siswa' : (appState.user.role === 'guru' ? 'Guru BK' : 'Admin');
         
-        // --- RENDER KOMPONEN KHUSUS: UBAH PASSWORD SISWA ---
-        function renderPasswordChange() {
-            const container = document.getElementById('app-root');
-            container.className = "min-h-screen bg-gray-100 font-sans flex flex-col";
+        return `
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Sidebar Navigasi -->
+                <div class="sidebar md:col-span-1 p-4">
+                    <h3 class="text-xl font-semibold mb-4">Portal ${currentRoleText}</h3>
+                    <p class="mb-6">Halo, ${appState.user.display_name}!</p>
+                    <ul class="space-y-2">
+                        <li><button onclick="appState.currentPage='${appState.user.role}-home'; render();" class="nav-button w-full text-left p-2 rounded-md hover:bg-indigo-700">Kembali ke Beranda</button></li>
+                        <li><button onclick="appState.currentPage='chat'; render();" class="nav-button w-full text-left p-2 rounded-md bg-indigo-700">Diskusi Kelompok</button></li>
+                        <li><button onclick="appState.user=null; appState.currentPage='login'; render();" class="nav-button w-full text-left p-2 rounded-md bg-red-600 hover:bg-red-700 mt-4">Keluar</button></li>
+                    </ul>
+                </div>
 
-            const onInputCurrentPassword = `updateTempInput('tempPassword', this.value)`;
-            const onInputNewPassword = `updateTempInput('tempNewPassword', this.value)`;
-
-            const html = `
-                <div class="max-w-xl mx-auto p-8 bg-white rounded-xl shadow-2xl border border-indigo-100 mt-10">
-                    <h1 class="text-3xl font-extrabold text-indigo-700 mb-6 text-center">Ubah Kata Sandi Saya</h1>
-                    <p class="text-center text-gray-600 mb-8 text-sm">Ganti kata sandi akun Anda (**${appState.nickname}**).</p>
+                <!-- Konten Utama: Chat -->
+                <div class="md:col-span-2 main-content space-y-4">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Diskusi Kelompok (Fitur Chat Lokal)</h2>
                     
-                    <div class="space-y-6">
-                        <div>
-                            <label for="current-password" class="block text-sm font-medium text-gray-700 mb-1">Kata Sandi Lama</label>
-                            <input
-                                id="current-password"
-                                type="password"
-                                value="${appState.tempPassword}"
-                                placeholder="Masukkan kata sandi lama Anda..."
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                oninput="${onInputCurrentPassword}"
-                            />
-                        </div>
-                        
-                        <div>
-                            <label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">Kata Sandi Baru</label>
-                            <input
-                                id="new-password"
-                                type="password"
-                                value="${appState.tempNewPassword}"
-                                placeholder="Minimal 5 karakter..."
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                oninput="${onInputNewPassword}"
-                            />
-                        </div>
+                    <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                        <p class="text-sm text-indigo-800">Fitur ini mensimulasikan diskusi kelompok Bimbingan dan Konseling. Untuk mengaktifkan Chat Realtime, diperlukan tabel Supabase tambahan untuk menyimpan pesan.</p>
+                    </div>
 
-                        ${appState.loginError ? `
-                            <div class="flex items-center p-3 text-sm text-red-800 bg-red-100 rounded-lg border border-red-300" role="alert">
-                                <i data-lucide="x-circle" class="w-4 h-4 mr-2 flex-shrink-0"></i>
-                                <div>${appState.loginError}</div>
-                            </div>
-                        ` : ''}
+                    <!-- Area Pesan (Placeholder untuk chat lokal) -->
+                    <div id="chat-messages" class="bg-white p-4 h-96 overflow-y-scroll border border-gray-300 rounded-lg shadow-inner space-y-3">
+                        ${appState.chatMessages.length === 0 
+                            ? '<p class="text-center text-gray-500 mt-20">Mulai diskusi Anda di sini...</p>' 
+                            : appState.chatMessages.map(msg => `
+                                <div class="flex ${msg.user === appState.user.display_name ? 'justify-end' : 'justify-start'}">
+                                    <div class="p-3 max-w-xs rounded-lg ${msg.user === appState.user.display_name ? 'bg-indigo-500 text-white rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-tl-none'} shadow">
+                                        <p class="font-bold text-xs ${msg.user === appState.user.display_name ? 'text-indigo-200' : 'text-gray-600'}">${msg.user}</p>
+                                        <p class="text-sm whitespace-pre-wrap">${msg.text}</p>
+                                        <p class="text-xs text-right mt-1 ${msg.user === appState.user.display_name ? 'text-indigo-300' : 'text-gray-500'}">${new Date(msg.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                    </div>
 
-                        <button
-                            onclick="handlePasswordChange()"
-                            class="w-full py-3 px-4 rounded-xl text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-md flex items-center justify-center space-x-2"
-                        >
-                            <i data-lucide="lock" class="w-5 h-5"></i> Simpan Kata Sandi Baru
-                        </button>
-
-                        <button
-                            onclick="updateState({ page: 'appointments', loginError: '', tempPassword: '', tempNewPassword: '' })"
-                            class="w-full py-2 px-4 rounded-xl text-sm font-medium text-gray-600 border border-gray-300 bg-white hover:bg-gray-50 transition flex items-center justify-center space-x-2"
-                        >
-                            <i data-lucide="arrow-left" class="w-5 h-5"></i> Kembali ke Dashboard
-                        </button>
+                    <!-- Input Chat -->
+                    <div class="flex space-x-2">
+                        <input type="text" id="chatInput" class="input-style flex-grow" placeholder="Ketik pesan Anda...">
+                        <button onclick="handleChatMessageSend()" class="btn-primary px-6">Kirim</button>
                     </div>
                 </div>
-            `;
-            // Ini akan dipanggil dari renderApp jika page === 'changePassword'
-            const mainContent = document.querySelector('main');
-            if(mainContent) {
-                mainContent.innerHTML = html;
-            } else {
-                // Render penuh jika tidak ada struktur aplikasi
-                 container.innerHTML = `
-                    <header class="bg-white shadow-lg p-4 sticky top-0 z-10">
-                        <div class="max-w-7xl mx-auto w-full flex justify-between items-center">
-                            <h1 class="text-2xl font-bold text-indigo-600">bisaBK :)</h1>
-                            <div class="flex items-center space-x-4">
-                                <span class="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
-                                    ${appState.nickname} (Siswa)
-                                </span>
-                                <button
-                                    onclick="handleLogout()"
-                                    class="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-md"
-                                    aria-label="Logout"
-                                >
-                                    <i data-lucide="log-out" class="w-5 h-5"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </header>
-                    <main class="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">${html}</main>
-                    <footer class="w-full text-center p-3 text-xs text-gray-500 mt-4">&copy; 2024 bisaBK</footer>
-                `;
-            }
-            lucide.createIcons();
+            </div>
+        `;
+    }
+    
+    // Handler Chat Lokal (Hanya di memori)
+    function handleChatMessageSend() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        const newMessage = {
+            user: appState.user.display_name,
+            text: text,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Simpan ke state lokal (seharusnya disimpan ke tabel Supabase 'chat')
+        appState.chatMessages.push(newMessage);
+        input.value = '';
+        
+        // Gulir ke bawah setelah pesan dikirim
+        render(); 
+        const chatBox = document.getElementById('chat-messages');
+        if (chatBox) {
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
-
-        // --- RENDER NAVIGASI (Diperbarui untuk Admin) ---
-        function renderNav() {
-            let navItems = [];
-            
-            if (appState.role === 'siswa' || appState.role === 'guru') {
-                navItems = [
-                    { id: 'appointments', label: 'Janji Temu', icon: 'book-open' },
-                    { id: 'materials', label: 'Materi', icon: 'briefcase' },
-                    { id: 'chat', label: 'Chat', icon: 'message-square' },
-                ];
-            }
-            
-            // Tambahkan Log Audit & Kelola Pengguna untuk Guru/Admin
-            if (appState.role === 'guru' || appState.role === 'admin') {
-                navItems.push({ id: 'auditLog', label: 'Log Audit', icon: 'eye' });
-            }
-
-            // Hanya Admin yang dapat mengelola pengguna
-            if (appState.role === 'admin') {
-                // Admin hanya melihat User Management dan Log Audit
-                navItems = [
-                    { id: 'userManagement', label: 'Kelola Pengguna', icon: 'users' },
-                    { id: 'auditLog', label: 'Log Audit', icon: 'eye' },
-                ];
-            }
+    }
 
 
-            const navHtml = navItems.map(item => `
-                <button
-                    onclick="updateState({ page: '${item.id}', loginError: '' })"
-                    class="w-full flex items-center py-3 px-2 md:px-4 rounded-lg transition duration-200 group 
-                        ${appState.page === item.id 
-                            ? 'bg-indigo-100 text-indigo-700 font-semibold' 
-                            : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
-                        }"
-                >
-                    <i data-lucide="${item.icon}" class="w-5 h-5 md:mr-3 flex-shrink-0"></i>
-                    <span class="hidden md:inline">${item.label}</span>
-                </button>
-            `).join('');
+    // --- FUNGSI UTAMA RENDER ---
 
-            return `
-                <nav class="w-16 md:w-56 bg-white p-2 md:p-4 rounded-xl shadow-lg h-fit sticky top-20 mr-4 md:mr-8">
-                    <div class="space-y-2">
-                        ${navHtml}
-                    </div>
-                </nav>
-            `;
-        }
+    function render() {
+        const container = document.getElementById('app-container');
+        if (!container) return;
 
-        // --- RENDER KONTEN UTAMA ---
-        function renderContent() {
-            switch (appState.page) {
-                case 'appointments':
-                    // Guru BK & Admin memiliki manager yang sama
-                    return appState.role === 'siswa' ? renderSiswaAppointmentRequest() : renderGuruAppointmentManager();
-                case 'materials':
-                    return renderMaterials();
+        let htmlContent = '';
+
+        if (!appState.isDataLoaded) {
+            htmlContent = '<p class="text-center text-xl text-gray-500 py-20">Memuat data dari Supabase...</p>';
+        } else if (!appState.user) {
+            htmlContent = renderLogin();
+        } else {
+            switch (appState.currentPage) {
+                case 'siswa-home':
+                    htmlContent = renderSiswaHome();
+                    break;
+                case 'siswa-materi':
+                    htmlContent = renderSiswaMateri();
+                    break;
+                case 'siswa-profile':
+                    htmlContent = renderSiswaProfile();
+                    break;
+                case 'guru-home':
+                    htmlContent = renderGuruHome();
+                    break;
+                case 'guru-materi-upload':
+                    htmlContent = renderGuruMateriUpload();
+                    break;
+                case 'admin-home':
+                    htmlContent = renderAdminHome();
+                    break;
+                case 'admin-users':
+                    htmlContent = renderAdminUserManagement();
+                    break;
                 case 'chat':
-                    return renderChat();
-                case 'changePassword':
-                    return renderPasswordChange(); 
-                case 'auditLog':
-                    return renderAuditLog(); 
-                case 'userManagement':
-                    return renderAdminUserManagement(); // Halaman khusus Admin
+                    htmlContent = renderChat();
+                    break;
                 default:
-                    // Default fallback for unauthorized pages
-                    return appState.role === 'admin' ? renderAdminUserManagement() : renderGuruAppointmentManager();
+                    htmlContent = renderLogin();
             }
         }
 
-        // --- RENDER APLIKASI UTAMA (Setelah Login) ---
+        container.innerHTML = htmlContent;
+    }
 
-        function renderApp() {
-            if (!appState.role) {
-                // Tentukan apakah harus merender halaman reset atau login
-                if (appState.page === 'resetPassword') {
-                    renderPasswordReset();
-                } else {
-                    renderLogin();
-                }
+    // Inisialisasi Aplikasi
+    window.onload = () => {
+        // Mulai memuat data dari Supabase
+        loadInitialData();
+        // Setup listener realtime setelah data dimuat
+        setupRealtimeListeners();
+    };
 
-                if (lastFocusState.id === 'nickname' || lastFocusState.id === 'password' || lastFocusState.id === 'admin-password') {
-                    const inputToFocus = document.getElementById(lastFocusState.id);
-                    if (inputToFocus) {
-                        inputToFocus.focus();
-                        inputToFocus.setSelectionRange(lastFocusState.position, lastFocusState.position);
-                    }
-                }
-                return;
-            }
-            
-            // ADMIN NAVIGASI FORCE: Admin hanya bisa melihat userManagement atau auditLog
-            if (appState.role === 'admin' && appState.page !== 'userManagement' && appState.page !== 'auditLog') {
-                 // Ganti page secara paksa ke User Management jika Admin mencoba mengakses page lain
-                 appState.page = 'userManagement';
-            }
-            
-            if (appState.page === 'changePassword') {
-                renderPasswordChange();
-                return;
-            }
-
-
-            const container = document.getElementById('app-root');
-            container.className = "min-h-screen bg-gray-100 font-sans flex flex-col";
-            
-            let userRoleDisplay = '';
-            if (appState.role === 'siswa') userRoleDisplay = 'Siswa';
-            else if (appState.role === 'guru') userRoleDisplay = 'Guru BK';
-            else if (appState.role === 'admin') userRoleDisplay = 'Admin (Super User)';
-
-            const roleColor = appState.role === 'siswa' ? 'bg-green-100 text-green-700' : (appState.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700');
-
-            const changePasswordButton = appState.role === 'siswa' ? `
-                <button
-                    onclick="updateState({ page: 'changePassword', loginError: '', tempPassword: '', tempNewPassword: '' })"
-                    class="p-2 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition shadow-md flex items-center justify-center text-sm"
-                    aria-label="Ubah Password"
-                    title="Ubah Kata Sandi"
-                >
-                    <i data-lucide="key" class="w-4 h-4"></i>
-                </button>
-            ` : '';
-
-            const headerHtml = `
-                <!-- Header -->
-                <header class="bg-white shadow-lg p-4 sticky top-0 z-10">
-                    <div class="max-w-7xl mx-auto w-full flex justify-between items-center">
-                        <h1 class="text-2xl font-bold text-indigo-600">bisaBK :)</h1>
-                        <div class="flex items-center space-x-4">
-                            <span class="text-sm font-medium ${roleColor} px-3 py-1 rounded-full">
-                                ${appState.nickname} (${userRoleDisplay})
-                            </span>
-                            ${changePasswordButton}
-                            <button
-                                onclick="handleLogout()"
-                                class="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-md"
-                                aria-label="Logout"
-                            >
-                                <i data-lucide="log-out" class="w-5 h-5"></i>
-                            </button>
-                        </div>
-                    </div>
-                </header>
-            `;
-            
-            const statusMessageHtml = appState.loginError ? `
-                <div class="max-w-7xl mx-auto w-full p-4">
-                    <div class="flex items-center p-3 text-sm bg-green-100 text-green-800 rounded-lg shadow-md border border-green-300" role="alert">
-                        <i data-lucide="check-circle" class="w-4 h-4 mr-2 flex-shrink-0"></i>
-                        <div>${appState.loginError}</div>
-                    </div>
-                </div>
-            ` : '';
-
-            const mainHtml = `
-                ${statusMessageHtml}
-                <div class="flex flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">
-                    <!-- Sidebar Navigasi -->
-                    ${renderNav()}
-
-                    <!-- Konten Utama -->
-                    <main class="flex-1 bg-white p-6 md:p-10 rounded-xl shadow-lg">
-                        ${renderContent()}
-                    </main>
-                </div>
-            `;
-
-            const footerHtml = `
-                <!-- Footer -->
-                <footer class="w-full text-center p-3 text-xs text-gray-500 mt-4">
-                    &copy; 2024 bisaBK
-                </footer>
-            `;
-
-            container.innerHTML = headerHtml + mainHtml + footerHtml;
-            
-            lucide.createIcons();
-            
-            // Hilangkan pesan sukses/error setelah 5 detik, kecuali di User Management
-            if (appState.loginError && !appState.page.includes('userManagement')) {
-                setTimeout(() => {
-                    updateState({ loginError: '' });
-                }, 5000); 
-            }
-
-            if (lastFocusState.id) {
-                 const inputToFocus = document.getElementById(lastFocusState.id);
-                 if (inputToFocus) {
-                     inputToFocus.focus();
-                     inputToFocus.setSelectionRange(lastFocusState.position, lastFocusState.position);
-                 }
-             }
-
-            if (appState.page === 'chat') {
-                setTimeout(() => {
-                    const chatEndRef = document.getElementById('chat-end');
-                    if (chatEndRef) {
-                        chatEndRef.scrollIntoView({ behavior: "auto" });
-                    }
-                }, 50); 
-            }
-        }
-
-        // Fungsi confirm custom (sebagai pengganti window.confirm)
-        function confirm(message) {
-            // Dalam lingkungan canvas, kita harus menggunakan pengganti UI. 
-            // Untuk kesederhanaan, kita akan menggunakan metode non-UI yang sudah tersedia.
-            // Di sini, kita akan menganggap konfirmasi selalu True agar proses delete tetap berjalan
-            // atau menggunakan prompt sederhana yang akan berfungsi di JS sandbox (tapi prompt mengganggu UX).
-            // Karena batasan lingkungan, saya akan menggunakan 'prompt' sebagai pengganti darurat
-            // meskipun ini adalah praktik yang BURUK dalam aplikasi nyata.
-            
-            // Karena instruksi melarang alert/confirm, kita akan mengubah logika delete
-            // menjadi konfirmasi yang sangat jelas (Admin harus klik 2x atau semacamnya).
-            // Karena ini adalah satu file, saya akan membiarkan prompt, tapi di lingkungan yang melarangnya,
-            // ini akan gagal. Saya kembali menggunakan logika konfirmasi sederhana untuk mematuhi aturan.
-            return window.confirm(message);
-        }
-
-        // --- INISIALISASI ---
-        window.onload = renderApp;
-    </script>
+</script>
 </body>
 </html>
