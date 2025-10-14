@@ -229,7 +229,7 @@
         if (user) {
             appState.user = user;
             appState.currentPage = user.role === 'siswa' ? 'siswa-home' : (user.role === 'guru' ? 'guru-home' : 'admin-home');
-            displayMessage(`Selamat datang, ${user.display_name}!`, 'success');
+            displayMessage(`Selamat datang, ${user.display_name}!<br>Sandi default: ${DEFAULT_PASSWORD}`, 'success');
             render();
         } else {
             displayMessage('Login gagal. Periksa nama pengguna, kata sandi, dan peran yang Anda pilih.', 'error');
@@ -266,6 +266,26 @@
         updatePasswordInSupabase(appState.user.username, newPass);
     }
     
+    // HANDLER BARU: Siswa mereset sandi sendiri ke default
+    async function handleSiswaSelfResetPassword() {
+        if (!appState.user || appState.user.role !== 'siswa') {
+            displayMessage('Aksi tidak valid. Anda harus masuk sebagai siswa.', 'error');
+            return;
+        }
+        
+        if (confirm(`Yakin ingin mereset kata sandi Anda sendiri (${appState.user.display_name}) ke sandi default: ${DEFAULT_PASSWORD}? Anda akan otomatis keluar.`)) {
+            // Lakukan pembaruan sandi ke default
+            await updatePasswordInSupabase(appState.user.username, DEFAULT_PASSWORD);
+
+            // Force logout setelah self-reset untuk keamanan
+            appState.user = null; 
+            appState.currentPage = 'login'; 
+            render();
+            // Menampilkan pesan sukses setelah render agar pesan muncul di halaman login
+            setTimeout(() => displayMessage(`Kata sandi Anda berhasil direset ke sandi default (${DEFAULT_PASSWORD}). Silakan masuk kembali.`, 'success'), 100);
+        }
+    }
+
     async function updatePasswordInSupabase(username, newPass) {
         try {
             const userToUpdate = appState.accounts.find(acc => acc.username.toLowerCase() === username.toLowerCase());
@@ -281,7 +301,9 @@
 
             if (handleSupabaseResponse(error, `Kata sandi untuk ${username} berhasil diperbarui.`)) {
                 // Update state lokal
-                appState.user.password = newPass; 
+                if (appState.user && appState.user.username === username) {
+                    appState.user.password = newPass; 
+                }
                 // Segera refresh data dari Supabase untuk update akun di state global
                 await loadInitialData();
                 render();
@@ -316,25 +338,9 @@
         }
     }
     
+    // Fungsi ini tidak lagi digunakan oleh halaman login
     function handleSiswaResetPassword() {
-        const usernameInput = document.getElementById('resetUsername').value.trim();
-        const userToReset = appState.accounts.find(
-            acc => acc.username.toLowerCase() === usernameInput.toLowerCase() && acc.role === 'siswa'
-        );
-
-        if (!userToReset) {
-            displayMessage('Nama pengguna Siswa tidak terdaftar.', 'error');
-            return;
-        }
-
-        // Admin dapat reset sandi siswa
-        if (appState.user && appState.user.role === 'admin') {
-            updatePasswordInSupabase(userToReset.username, DEFAULT_PASSWORD);
-            displayMessage(`Kata sandi Siswa ${userToReset.display_name} berhasil direset ke sandi default!`, 'success');
-        } else {
-             // Siswa melakukan reset mandiri (hanya bisa ke sandi default)
-            updatePasswordInSupabase(userToReset.username, DEFAULT_PASSWORD);
-        }
+        displayMessage('Fitur reset sandi publik telah dipindahkan. Silakan gunakan opsi reset di portal Siswa atau hubungi Admin/Guru BK.', 'info');
     }
 
 
@@ -373,9 +379,10 @@
         const userToReset = appState.accounts.find(acc => acc.id === id && acc.role === 'siswa');
         if (!userToReset) return;
 
-        if (confirm(`Yakin ingin mereset kata sandi akun siswa ${userToReset.display_name} (${userToReset.username})?`)) {
+        // Tidak menggunakan confirm() karena sudah dilakukan di renderAdminUserManagement
+        // if (confirm(`Yakin ingin mereset kata sandi akun siswa ${userToReset.display_name} (${userToReset.username})?`)) {
             updatePasswordInSupabase(userToReset.username, DEFAULT_PASSWORD);
-        }
+        // }
     }
     
     async function handleAdminAddStudent() {
@@ -472,11 +479,9 @@
                     </button>
                 </div>
 
+                <!-- UPDATE: Menghapus pesan Guru BK/Admin dapat mereset sandi -->
                 <div class="mt-6 text-center text-sm text-gray-600">
-                    <p>Lupa Kata Sandi? Masukkan ID Siswa di bawah:</p>
-                    <input type="text" id="resetUsername" class="input-style mt-2 mb-2 w-2/3" placeholder="Masukkan ID Siswa">
-                    <button onclick="handleSiswaResetPassword()" class="btn-primary p-2 text-xs">Reset Sandi Siswa</button>
-                    <p class="mt-2 text-xs">Sandi akan direset ke default: ${DEFAULT_PASSWORD}</p>
+                    <p>Lupa Kata Sandi? Silakan hubungi Guru BK atau Admin Anda.</p>
                 </div>
             </div>
         `;
@@ -596,6 +601,14 @@
                             </div>
                             <button onclick="handleSiswaChangePassword()" class="btn-primary w-full mt-3">Perbarui Kata Sandi</button>
                         </div>
+                    </div>
+
+                    <!-- FITUR BARU: Reset Sandi Mandiri ke Default -->
+                    <h3 class="text-2xl font-bold text-gray-800 border-b pb-2 mt-8">Reset Sandi Mandiri (Darurat)</h3>
+                    <div class="bg-red-50 p-6 rounded-lg shadow-md border border-red-300 max-w-lg">
+                        <p class="mb-3 text-sm text-red-700">Jika Anda lupa sandi kustom yang Anda buat, Anda dapat mereset sandi Anda sendiri kembali ke **sandi default**:</p>
+                        <p class="text-lg font-bold text-red-800 mb-3">${DEFAULT_PASSWORD}</p>
+                        <button onclick="handleSiswaSelfResetPassword()" class="bg-red-600 hover:bg-red-700 text-white w-full py-2 rounded-md transition">Reset Sandi Saya ke Default</button>
                     </div>
                 </div>
             </div>
